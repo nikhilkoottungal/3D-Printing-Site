@@ -18,7 +18,7 @@ Updated: 2026-10-21
 - Consider Dolibarr only if fuller ERP capabilities are needed, particularly supplier purchasing, accounting/invoicing, or warehouse management. The current portal inventory is basic and should not be described as a complete ERP.
 - The Hostinger `/erp` directory was removed by the owner before Dolibarr installation. No Dolibarr application files were installed there and no Dolibarr tables were created by this setup attempt. The isolated database was created separately; leave it unused unless the owner chooses to proceed later. The portal database and existing portal data were not changed by the Dolibarr attempt.
 - Keep the portal as the operational system for the current test workflow. Revisit the ERP integration only after listing required workflows and deciding which system owns each record to avoid duplicate customer/order/inventory data.
-- Hostinger constraint noted in the deployment brief: the current shared plan is not for persistent background workers/daemon processes. This portal is request-based; any scheduled work must use cron within the host's allowed limits.
+- Hostinger supports PHP websites and scheduled PHP cron jobs. This portal is request-based and does not need a continuously running PHP daemon/background worker; scheduled jobs must stay within the plan's resource and cron-job limits.
 
 ## What this is
 

@@ -35,7 +35,7 @@ The portal has been installed at the temporary Hostinger URL `https://pink-viper
 - Confirmed Dolibarr is optional and not required for the current portal's customer/order/staff workflow or basic inventory. Consider it later only for identified needs such as supplier purchasing, accounting/invoicing, or warehouse management.
 - The owner removed the empty `public_html/erp/` directory before the Dolibarr archive was installed. No Dolibarr application files or application tables were added to Hostinger. The isolated Dolibarr database was created separately but left unused; the existing portal database/users/data were not changed by this attempt.
 - The portal integration is limited to server-side customer/proposal sync and does not make all Dolibarr ERP screens/features part of the portal. Define ownership of shared data before any future integration.
-- Hosting constraint for this deployment: the current shared plan is not intended for persistent background workers/daemons; keep the portal request-based and use scheduled cron only within Hostinger's limits.
+- Hosting note for this deployment: PHP websites and scheduled PHP cron jobs are supported. The portal is request-based and does not need a continuously running PHP daemon/background worker; scheduled jobs must stay within the plan's resource and cron-job limits.
 
 ## Current verification
 
