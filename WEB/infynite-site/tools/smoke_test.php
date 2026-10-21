@@ -48,7 +48,16 @@ $mailLog = "$tmp/storage/logs/mail.log";
 /* ---------- start server ---------- */
 if ($c = @fsockopen('127.0.0.1', 8099, $en0, $es0, 0.3)) { fclose($c); echo "port 8099 is already in use - stop that program first (a leftover test server?)\n"; exit(1); }
 $env = array_merge(getenv(), ['INFYNITE_CONFIG' => "$tmp/config.php"]);
-$proc = proc_open([PHP_BINARY, '-S', '127.0.0.1:8099', '-t', dirname(__DIR__) . '/public', dirname(__DIR__) . '/public/index.php'], [0 => ['pipe', 'r'], 1 => ['file', "$tmp/server.log", 'w'], 2 => ['file', "$tmp/server.log", 'a']], $pipes, dirname(__DIR__), $env);
+$serverCmd = [PHP_BINARY];
+// The Windows standalone PHP package may have extensions enabled only through
+// CLI flags. Pass the extensions loaded by this test process to the child
+// built-in server as well; otherwise setup requests fail with missing PDO and
+// mbstring functions even though the test runner itself has them.
+foreach (['curl', 'fileinfo', 'gd', 'intl', 'mbstring', 'mysqli', 'openssl', 'pdo_mysql', 'sodium', 'zip'] as $ext) {
+    if (extension_loaded($ext)) { $serverCmd[] = '-d'; $serverCmd[] = 'extension=' . $ext; }
+}
+$serverCmd = array_merge($serverCmd, ['-S', '127.0.0.1:8099', '-t', dirname(__DIR__) . '/public', dirname(__DIR__) . '/public/index.php']);
+$proc = proc_open($serverCmd, [0 => ['pipe', 'r'], 1 => ['file', "$tmp/server.log", 'w'], 2 => ['file', "$tmp/server.log", 'a']], $pipes, dirname(__DIR__), $env);
 $up = false; for ($i = 0; $i < 50 && !$up; $i++) { usleep(100000); $c = @fsockopen('127.0.0.1', 8099, $en, $es, 0.2); if ($c) { fclose($c); $up = true; } }
 if (!$up) { echo "server did not start\n"; exit(1); }
 $B = 'http://127.0.0.1:8099';

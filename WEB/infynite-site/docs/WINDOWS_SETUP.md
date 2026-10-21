@@ -1,14 +1,14 @@
 # Windows setup – a local copy that mirrors the real host
 
 Goal: run the portal, Dolibarr and the backup tools on a Windows 10/11 PC **the same way they will run on Hostinger**: Apache serving a `public` folder, PHP, MariaDB, the application code and private storage **outside** the web root, virtual hosts instead of `php -S`, Task Scheduler instead of cron, HTTPS as in production.
-Everything below was derived from a Linux-tested code base. The Windows steps themselves are **untested** – if a step fails, note the exact message and fix the guide.
+Everything below was derived from a Linux-tested code base. The core Windows setup and automated checks were verified on 2026-10-21 with PHP 8.5.11 and MariaDB 13.0.2. Apache/XAMPP, Dolibarr, HTTPS, and scheduled-backup sections remain deployment guidance and were not fully exercised in this pass.
 Time: ~1.5 hours the first time. Use **PowerShell** unless a step says "cmd".
 
 > Differences from the host to remember: Windows file names are case-insensitive (Linux is not – keep exact case in code and links), `chmod` does nothing on Windows, Hostinger runs LiteSpeed (reads `.htaccess` like Apache), cron → Task Scheduler. Fix real problems on Linux-like behaviour by also testing on the host's staging.
 
 ## 1. Install the tools
 1. **Git for Windows** – https://git-scm.com/download/win (choose "Checkout as-is, commit Unix-style line endings" or run `git config --global core.autocrlf input`). Needed by the AI agent tooling as well.
-2. **XAMPP for Windows with PHP 8.3** (Apache 2.4 + PHP + MariaDB) – https://www.apachefriends.org (pick the **8.3** installer; the portal needs **PHP ≥ 8.1**). Install to `C:\xampp`. Components needed: Apache, MySQL (MariaDB), PHP, phpMyAdmin (optional). Allow it through the Windows firewall for private networks only.
+2. **XAMPP for Windows with PHP 8.3** (Apache 2.4 + PHP + MariaDB) – https://www.apachefriends.org (pick the **8.3** installer; the portal needs **PHP ≥ 8.1**). Install to `C:\xampp`. Components needed: Apache, MySQL (MariaDB), PHP, phpMyAdmin (optional). Allow it through the Windows firewall for private networks only. The verified test run used Chocolatey PHP 8.5.11 and MariaDB 13.0.2 instead of XAMPP.
    *Alternative:* Laragon (auto virtual hosts) works too, but keep the folder layout in §2.
 3. **Add PHP to PATH:** Start → "Edit environment variables" → Path → add `C:\xampp\php` and `C:\xampp\mysql\bin`. Open a **new** PowerShell and check:
    ```powershell
@@ -121,10 +121,14 @@ If `sodium` or `intl` is missing, check `C:\xampp\php\ext` for `php_sodium.dll` 
 ## 7. Automated tests (prove the Windows install behaves like the Linux one)
 ```powershell
 cd C:\sites\infynite
-php tools\smoke_test.php          # ~60 end-to-end checks; builds and drops its own database infynite_smoke, uses port 8099
-php tools\test_roundtrip.php      # 22 backup/restore checks; uses databases infynite_bktest_*
+php tools\smoke_test.php          # 62 end-to-end checks; builds and drops its own database infynite_smoke, uses port 8099
+php tools\test_roundtrip.php      # backup/restore checks; uses databases infynite_bktest_*
 ```
 Both must end with `0 failed`. If port 8099 is busy, stop the other program. Antivirus can slow or lock temp files – add `C:\sites` and `%TEMP%` to exclusions if tests time out.
+
+### Standalone PHP on Windows
+
+The verified Chocolatey PHP package kept extensions disabled in its default `php.ini`. Enable curl, fileinfo, GD, intl, mbstring, mysqli, openssl, PDO MySQL, sodium, and zip in `php.ini`, or pass them with `-d extension=...` as in the test command. The smoke test now forwards extensions loaded by its parent CLI process to the child PHP server; this keeps the test portable when extensions are enabled through CLI flags.
 
 ## 8. Dolibarr (as on the host: separate web root + documents outside it)
 1. Download the **official release** of Dolibarr (version recorded in `docs/HANDOVER.md` §11a; tested with 23.0.4) from https://www.dolibarr.org → Download → the `.zip` (SourceForge). Extract so that `C:\sites\dolibarr\htdocs\master.inc.php` exists. Create `C:\sites\dolibarr-documents`.

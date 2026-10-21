@@ -3,7 +3,7 @@
 **AI agents / new developers: start with `AGENTS.md` and `docs/HANDOVER.md`**; Windows: `docs/WINDOWS_SETUP.md`; hosting check: `docs/PHASE0_HOSTING_CHECKLIST.md` (full description, rules, Windows + Linux setup, status, roadmap).
 
 Plain PHP 8 + MySQL, no framework, no Composer, no background processes (fits shared hosting).
-**Status (2026-10-21):** runs and passes 62 end-to-end checks + 22 backup/restore checks on Linux (PHP 8.3, MariaDB); Windows setup guide written (untested); **not yet deployed** – the Hostinger Phase 0 check is the next milestone.
+**Status (2026-10-21):** runs and passes 62 end-to-end checks on Windows (PHP 8.5.11, MariaDB 13.0.2) and Linux. The backup/restore suite passes 21 executed checks with 0 failures on Windows (one Linux-specific read-only-folder check is skipped). Windows local setup is verified; **not yet deployed** – the Hostinger Phase 0 check is the next milestone.
 
 ## What is in it
 - **Public site:** home, services, materials, gallery, contact, privacy, terms (drafts, need professional review).
@@ -40,4 +40,4 @@ All staff: read/edit procedures, see all tasks, comment, create tasks. Edit a ta
 ## Known limits / to verify (Phase 0)
 - Upload size, DB count, cron, mail delivery and private folder above web root are **unverified** on Hostinger.
 - Dolibarr client (`app/lib/dolibarr.php`) is untested; check payloads against your version. Staff UI is this portal, not Dolibarr's task module (decision to confirm).
-- No MFA for staff yet (brief asks for it if supported). No automated tests yet.
+- No MFA for staff yet (brief asks for it if supported). Automated smoke and backup/restore checks are available under `tools/`.
