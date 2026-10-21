@@ -58,6 +58,7 @@ Demo data lives only in the developer's local databases. **Do not ship it.** A f
 - PHP 8.x, HTML/CSS/JS, MySQL/MariaDB. Avoid heavy dependencies. Dolibarr is optional, not a runtime prerequisite.
 - If Dolibarr is adopted later, explicitly define which system owns each entity. Any portal integration must use **server-side REST only**; never write to Dolibarr tables directly. Until that decision, the portal's own database remains authoritative for the workflows implemented in the portal.
 - Hostinger supports PHP websites and scheduled PHP cron jobs. This app uses ordinary PHP requests and does not require a continuously running PHP daemon/background worker; scheduled tasks must stay within the plan's resource and cron-job limits.
+- Hostinger PHP Sodium is currently missing (per the hosting check). The portal's encrypted backup/restore toolkit requires Sodium; Dolibarr core does not. Enable and verify the extension before relying on the portal's encrypted backups.
 - Model files and documents must live **outside the public document root**; if the host cannot do that, stop and propose a secure alternative before accepting uploads.
 - Security: HTTPS, secure cookies, server-side authorization on every record/file, CSRF, prepared SQL, output encoding, rate-limited login/reset, `password_hash`, validated uploads, no secrets in repo/logs.
 - Never modify production DB/files without explicit approval and a verified backup. Never ask for passwords in chat.

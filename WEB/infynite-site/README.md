@@ -21,6 +21,8 @@ Dolibarr is **not required** for the current portal: customer accounts, quote/or
 
 **Current hosting constraint:** Hostinger supports PHP websites and scheduled PHP cron jobs. This portal runs as ordinary PHP web requests; it does not require a continuously running PHP daemon/background worker. Keep scheduled work within the hosting plan's resource and cron-job limits.
 
+**Extension note:** the Sodium extension is currently missing from the Hostinger PHP setup (per the hosting check). This blocks the portal's encrypted backup/restore toolkit, which uses Sodium for key handling and encryption; it does **not** block Dolibarr core operation. Enable Sodium before relying on the portal's encrypted backups.
+
 ## Layout
 `public/` is the only web-visible folder. `app/`, `sql/`, `storage/` must sit **above** it.
 

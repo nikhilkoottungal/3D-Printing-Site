@@ -19,6 +19,7 @@ Updated: 2026-10-21
 - The Hostinger `/erp` directory was removed by the owner before Dolibarr installation. No Dolibarr application files were installed there and no Dolibarr tables were created by this setup attempt. The isolated database was created separately; leave it unused unless the owner chooses to proceed later. The portal database and existing portal data were not changed by the Dolibarr attempt.
 - Keep the portal as the operational system for the current test workflow. Revisit the ERP integration only after listing required workflows and deciding which system owns each record to avoid duplicate customer/order/inventory data.
 - Hostinger supports PHP websites and scheduled PHP cron jobs. This portal is request-based and does not need a continuously running PHP daemon/background worker; scheduled jobs must stay within the plan's resource and cron-job limits.
+- Hostinger's Sodium PHP extension is currently missing (per the hosting check). It is required by this portal's encrypted backup/restore toolkit, not by Dolibarr core. Enable it before treating the portal's encrypted backups as operational.
 
 ## What this is
 

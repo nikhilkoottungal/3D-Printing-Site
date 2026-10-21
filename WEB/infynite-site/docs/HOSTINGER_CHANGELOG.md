@@ -36,6 +36,7 @@ The portal has been installed at the temporary Hostinger URL `https://pink-viper
 - The owner removed the empty `public_html/erp/` directory before the Dolibarr archive was installed. No Dolibarr application files or application tables were added to Hostinger. The isolated Dolibarr database was created separately but left unused; the existing portal database/users/data were not changed by this attempt.
 - The portal integration is limited to server-side customer/proposal sync and does not make all Dolibarr ERP screens/features part of the portal. Define ownership of shared data before any future integration.
 - Hosting note for this deployment: PHP websites and scheduled PHP cron jobs are supported. The portal is request-based and does not need a continuously running PHP daemon/background worker; scheduled jobs must stay within the plan's resource and cron-job limits.
+- Sodium extension status: currently missing from the Hostinger PHP setup (per the hosting check). The Infynite encrypted backup/restore toolkit depends on Sodium; Dolibarr core does not. Enable and verify Sodium before relying on encrypted backups.
 
 ## Current verification
 
