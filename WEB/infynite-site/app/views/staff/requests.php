@@ -1,0 +1,6 @@
+<div class="top"><h2 style="margin:0">Orders</h2><?php if (can('requests.create')): ?><a class="btn" href="/staff/requests/new">+ New direct order</a><?php endif; ?></div>
+<div class="tabs"><a href="/staff/requests" class="<?= $filter === '' ? 'on' : '' ?>">All</a>
+<?php foreach (STATUSES as $k => $l): ?><a href="/staff/requests?status=<?= e($k) ?>" class="<?= $filter === $k ? 'on' : '' ?>"><?= e($l) ?><?= isset($counts[$k]) ? ' (' . $counts[$k] . ')' : '' ?></a><?php endforeach; ?></div>
+<div class="card"><div class="tw"><table><tr><th>Ref</th><th>Customer</th><th>Material</th><th>Qty</th><th>Quote</th><th>Status</th><th>Updated</th></tr>
+<?php foreach ($rows as $r): ?><tr><td><a href="/staff/requests/<?= (int) $r['id'] ?>"><?= e($r['ref']) ?></a><?= $r['source'] === 'direct' ? ' ' . badge('Direct') : '' ?></td><td><?= e($r['cname']) ?></td><td><?= e($r['material']) ?> / <?= e($r['color']) ?></td><td><?= (int) $r['quantity'] ?></td><td><?= e(money($r['quote_amount'])) ?></td><td><?= status_badge($r['status']) ?></td><td><?= e(fmt_date($r['updated_at'])) ?></td></tr><?php endforeach; ?>
+<?php if (!$rows): ?><tr><td colspan="7" class="muted">Nothing here.</td></tr><?php endif; ?></table></div></div>

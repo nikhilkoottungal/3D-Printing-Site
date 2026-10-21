@@ -1,0 +1,7 @@
+<div class="top"><div><h2 style="margin:0">Knowledge &amp; procedures</h2><span class="muted">How we do things. Anyone on staff can edit; every change is versioned.</span></div><a class="btn" href="/staff/kb/new">+ New article</a></div>
+<form class="filters" method="get"><div><label>Search</label><input name="q" value="<?= e($q) ?>" placeholder="title or text"></div>
+<div><label>Type</label><select name="kind" data-autosubmit><option value="">All</option><option value="procedure" <?= $kind === 'procedure' ? 'selected' : '' ?>>Procedures</option><option value="knowledge" <?= $kind === 'knowledge' ? 'selected' : '' ?>>Knowledge</option></select></div><button class="btn alt sm">Search</button></form>
+<?php $cur = null; foreach ($rows as $r): if ($r['category'] !== $cur): if ($cur !== null) echo '</table></div></div>'; $cur = $r['category']; ?>
+<div class="card mb"><h3><?= e($cur) ?></h3><div class="tw"><table><?php endif; ?>
+<tr><td><a href="/staff/kb/<?= e($r['slug']) ?>"><?= e($r['title']) ?></a></td><td><?= badge($r['kind'] === 'procedure' ? 'Procedure' : 'Knowledge', $r['kind'] === 'procedure' ? 'p-info' : '') ?></td><td class="muted">v<?= (int) $r['version'] ?> · <?= e(fmt_date($r['updated_at'])) ?></td><td><?= $r['review_due'] && $r['review_due'] < date('Y-m-d') ? '<span class="overdue">review due</span>' : '' ?></td></tr>
+<?php endforeach; if ($cur !== null) echo '</table></div></div>'; if (!$rows): ?><div class="card"><p class="muted">No articles found.</p></div><?php endif; ?>

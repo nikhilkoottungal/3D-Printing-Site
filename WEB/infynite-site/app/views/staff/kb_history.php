@@ -1,0 +1,6 @@
+<div class="top"><h2 style="margin:0">History: <?= e($a['title']) ?></h2><a class="btn alt" href="/staff/kb/<?= e($a['slug']) ?>">← Article</a></div>
+<div class="grid g2" style="align-items:start;grid-template-columns:1fr 2fr">
+<div class="card"><h3>Versions</h3><?php foreach ($versions as $v): ?><div class="comment"><a href="/staff/kb/<?= e($a['slug']) ?>/history?v=<?= (int) $v['version'] ?>"><b>v<?= (int) $v['version'] ?></b></a><?= (int) $v['version'] === (int) $a['version'] ? ' (current)' : '' ?><br><span class="who"><?= e(fmt_dt($v['edited_at'])) ?> · <?= e($v['uname'] ?? '?') ?></span><br><?= e($v['note'] ?? '') ?></div><?php endforeach; ?></div>
+<div class="card"><?php if ($show): ?><h3>Version <?= (int) $show['version'] ?>: <?= e($show['title']) ?></h3><?= md($show['body']) ?>
+<?php if ((int) $show['version'] !== (int) $a['version']): ?><form method="post" action="/staff/kb/<?= e($a['slug']) ?>/restore" class="mt"><?= csrf_field() ?><input type="hidden" name="version" value="<?= (int) $show['version'] ?>"><button class="btn alt" data-confirm="Restore this version as a new version?">Restore this version</button></form><?php endif; ?>
+<?php else: ?><p class="muted">Select a version to view it.</p><?php endif; ?></div></div>

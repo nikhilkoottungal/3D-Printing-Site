@@ -1,0 +1,2 @@
+<section class="block"><div class="wrap"><h1 style="font-size:2.2rem">Gallery</h1><p class="muted">Photos of finished work will appear here. (Add images to <code>public/assets/gallery/</code> and list them in this file.)</p>
+<div class="grid g3"><?php for ($i = 1; $i <= 6; $i++): ?><div class="card viz" style="aspect-ratio:4/3"><span class="muted">Photo <?= $i ?></span></div><?php endfor; ?></div></div></section>

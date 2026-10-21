@@ -1,0 +1,20 @@
+# Local credentials and runtime state
+WEB/dolibarr-local/ADMIN_LOGIN.txt
+WEB/dolibarr-local/API_KEY.txt
+WEB/dolibarr-local/server.log
+WEB/infynite-site/app/config.php
+WEB/infynite-site/storage/uploads/*
+WEB/infynite-site/storage/logs/*
+WEB/infynite-site/storage/backup/
+WEB/infynite-site/storage/maintenance.flag
+
+# Keep required directory protection markers
+!WEB/infynite-site/storage/uploads/.gitkeep
+!WEB/infynite-site/storage/logs/.gitkeep
+
+# Common local/editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+

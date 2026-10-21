@@ -1,0 +1,13 @@
+Options -Indexes
+RewriteEngine On
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|[a-z0-9.-]+\.localhost)(:[0-9]+)?$ [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# Front controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
+<FilesMatch "\.(sql|log|md|env|ini|bak)$">
+  Require all denied
+</FilesMatch>

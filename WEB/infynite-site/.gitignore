@@ -1,0 +1,10 @@
+# secrets and local state - never commit
+app/config.php
+storage/uploads/*
+storage/logs/*
+storage/backup/
+storage/maintenance.flag
+*.key
+API_KEY.txt
+ADMIN_LOGIN.txt
+!storage/.htaccess
