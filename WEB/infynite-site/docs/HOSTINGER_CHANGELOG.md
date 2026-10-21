@@ -54,4 +54,4 @@ The portal has been installed at the temporary Hostinger URL `https://pink-viper
 
 ## Repository and commit note
 
-The relevant local working-tree changes include this document, `SCRATCHPAD.md`, `docs/HANDOVER.md`, and the three PHP routing/bootstrap files listed above. Unrelated credentials, deployment archives, logs, and generated test artifacts must stay out of Git. A commit was attempted but Windows denied creation of `.git/index.lock`; no commit was created. The PHP syntax checks passed. The smoke test could not be rerun from the restricted Codex environment because the local MariaDB socket/port access was denied; the prior successful Windows test result is recorded above.
+The Dolibarr/Hostinger notes in this update and the companion changes in `README.md`, `SCRATCHPAD.md`, and `docs/HANDOVER.md` are documentation-only. They were committed on `first-live-test` as `db72ecc`, `dcfa274`, and `73f60ab`. No application code, UI, portal database, or portal user data was changed for this decision. Unrelated credentials, deployment archives, logs, and generated test artifacts remain outside those commits.
