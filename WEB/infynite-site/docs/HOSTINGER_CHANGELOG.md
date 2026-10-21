@@ -1,6 +1,6 @@
 # Infynite portal change log and current handover
 
-Updated: 2026-10-21
+Updated: 2026-10-22
 
 ## Scope and status
 
@@ -29,6 +29,13 @@ The portal has been installed at the temporary Hostinger URL `https://pink-viper
 - Copied the staging app/config to this layout and changed the configured base URL to the temporary domain root. No credential values are recorded here.
 - Moved the previous `infynite-test/` staging copy above the document root for rollback. Downloaded the old root `index.html` and retained it above the web root as `index.html.hostinger-backup-20261021`. The old CSS and deployment package/archive were also moved out of `public_html/`.
 - Kept the existing test database, DB account, Owner account, password hashes, and business/test data. No schema migration, account deletion, or password reset was performed.
+
+### Dolibarr decision and cancelled Hostinger test install (2026-10-22)
+
+- Confirmed Dolibarr is optional and not required for the current portal's customer/order/staff workflow or basic inventory. Consider it later only for identified needs such as supplier purchasing, accounting/invoicing, or warehouse management.
+- The owner removed the empty `public_html/erp/` directory before the Dolibarr archive was installed. No Dolibarr application files or application tables were added to Hostinger. The isolated Dolibarr database was created separately but left unused; the existing portal database/users/data were not changed by this attempt.
+- The portal integration is limited to server-side customer/proposal sync and does not make all Dolibarr ERP screens/features part of the portal. Define ownership of shared data before any future integration.
+- Hosting constraint for this deployment: the current shared plan is not intended for persistent background workers/daemons; keep the portal request-based and use scheduled cron only within Hostinger's limits.
 
 ## Current verification
 

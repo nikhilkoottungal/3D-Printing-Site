@@ -12,6 +12,14 @@ Updated: 2026-10-21
 - Security follow-up: rotate the DB password and setup token because the Hostinger file manager's accessibility output exposed both while config was being edited. Verify DB connectivity and setup endpoint closure afterward.
 - Remaining before production: real-domain routing/HTTPS; Hostinger PHP version/extensions and limits; real STL/3MF upload; outgoing mail; scheduled/off-site backups and restore drill; mobile/security/privacy review; explicit launch approval. Keep rollback copies until a separate backup is confirmed.
 
+## Dolibarr decision (2026-10-22)
+
+- Dolibarr is optional, not a dependency of the current Infynite portal. The portal already provides customer accounts, quote/order requests and approvals, order tracking, staff tasks/procedures/team roles, and basic inventory.
+- Consider Dolibarr only if fuller ERP capabilities are needed, particularly supplier purchasing, accounting/invoicing, or warehouse management. The current portal inventory is basic and should not be described as a complete ERP.
+- The Hostinger `/erp` directory was removed by the owner before Dolibarr installation. No Dolibarr application files were installed there and no Dolibarr tables were created by this setup attempt. The isolated database was created separately; leave it unused unless the owner chooses to proceed later. The portal database and existing portal data were not changed by the Dolibarr attempt.
+- Keep the portal as the operational system for the current test workflow. Revisit the ERP integration only after listing required workflows and deciding which system owns each record to avoid duplicate customer/order/inventory data.
+- Hostinger constraint noted in the deployment brief: the current shared plan is not for persistent background workers/daemon processes. This portal is request-based; any scheduled work must use cron within the host's allowed limits.
+
 ## What this is
 
 Infynite Solutions is a plain PHP 8 web portal backed by MySQL/MariaDB. It has no framework, Composer package, npm build, or background process requirement. `public/` is the only web root; `app/`, `sql/`, `storage/`, `tools/`, and `docs/` must remain outside it.

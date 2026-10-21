@@ -9,7 +9,7 @@ A custom, lightweight PHP portal for **infynitesolutions.in**, a 3D-printing bus
 1. **Public website** (home, services, materials, gallery, contact, privacy, terms).
 2. **Customer portal** (register, verify email, log in, upload STL/3MF, place an order / request a quote, approve a quote, track the order, export/delete data).
 3. **Staff workspace** (`/staff`): orders, tasks, knowledge base & procedures, inventory, team & roles.
-4. Optional **Dolibarr ERP** integration over REST (customers + proposals). Dolibarr itself is **not** installed yet.
+4. Optional **Dolibarr ERP** integration over REST (customers + proposals). Dolibarr is not required to run the current portal; its Hostinger test install was not completed.
 
 Everything is plain PHP + MySQL/MariaDB. No framework, no Composer, no Node, no background workers.
 
@@ -18,7 +18,7 @@ Everything is plain PHP + MySQL/MariaDB. No framework, no Composer, no Node, no 
 |---|---|
 | Portal (public site, customers, orders, direct orders, tasks, KB, inventory, team, backups page) | Built; **62/62** end-to-end checks pass (`php tools/smoke_test.php`, portable, builds its own DB) on Linux PHP 8.3 + MariaDB |
 | Backup/restore tooling | Built; **22/22** checks pass (`php tools/test_roundtrip.php`); live disaster restore verified, incl. Dolibarr |
-| Dolibarr | **Local test** instance 23.0.4 installed; portal sync (customer + draft proposal) verified; production install **not** done |
+| Dolibarr | Optional; not required for the current portal. Hostinger test install was not completed; owner removed the empty `/erp` directory before installation. |
 | Windows | Guide written; PHP 8.5.11 + MariaDB 13.0.2 installed and tests verified locally (see `SCRATCHPAD.md`) |
 | Hostinger | Temporary test deployment live at `https://pink-viper-143770.hostingersite.com/`; clean public root and private app/storage above it. Not production; see “Hostinger test deployment” below. |
 | rclone transfer (host to PC to Google Drive) | **Decided, not built** (owner: use rclone; wait for Phase 0) |
@@ -34,7 +34,7 @@ Demo data lives only in the developer's local databases. **Do not ship it.** A f
 2. Complete Hostinger checks: PHP version/extensions, upload limits with real STL/3MF files, outgoing mail, HTTPS/cookie behavior, and cron/SSH/SFTP/database limits. Record measured results in `PHASE0_HOSTING_CHECKLIST.md`.
 3. Confirm recoverable backups of the prior root and rollback/staging copies before deleting anything. Only after checks and explicit approval, connect the real domain and progress to production.
 4. Generate backup keys (`tools/keygen.php`), schedule backups, build the **rclone** transfer (host to owner PC via SFTP/FTPS, PC to Google Drive 10 GB cap) and dead-man alert; perform an off-site restore drill before launch.
-5. Remaining MVP gaps: storage cleanup of old files, MFA, supplier PO list or Dolibarr POs, professional privacy/terms review, final test report approved by the owner (brief section 8).
+5. Remaining MVP gaps: storage cleanup of old files, MFA, supplier purchasing/PO workflow (add Dolibarr only if needed), professional privacy/terms review, final test report approved by the owner (brief section 8).
 
 ### Hostinger test deployment (2026-10-21)
 
@@ -46,10 +46,18 @@ Demo data lives only in the developer's local databases. **Do not ship it.** A f
 - Security: rotate DB password and setup token; both secret values were exposed in file-manager accessibility output during config editing. Then verify connectivity and that setup is closed. Do not repeat the values.
 - Still unverified: real domain, PHP extensions/limits, real upload, mail, HTTPS/cookies, backup automation/off-site recovery, complete mobile/security review, and launch approval.
 
+### Dolibarr decision (2026-10-22)
+
+- Dolibarr is **not necessary for the current portal to function**. The portal already covers customer accounts, quote/order workflow, staff tasks and procedures, team roles, and basic inventory.
+- Dolibarr would be a separate optional system for fuller ERP workflows such as supplier purchasing, accounting/invoicing, or warehouse management. The existing portal integration is limited to server-side customer/proposal sync; installation alone would not make every ERP function appear in the portal UI.
+- Owner removed the newly created, empty Hostinger `public_html/erp/` directory before installation. The Dolibarr archive was not installed and the isolated Dolibarr database was not initialized with application tables. The existing portal app/database and its users/data were not modified as part of this decision.
+- If ERP requirements emerge later, define the source of truth per entity before connecting the systems to avoid duplicate or conflicting customer, order, and stock records.
+
 ## 2. Hard constraints from the brief (do not violate)
 - Use the existing Hostinger **Single** plan: no VPS, Docker, root, persistent Node/Python, or extra paid services; do not upgrade the plan without owner approval.
-- PHP 8.x, HTML/CSS/JS, MySQL/MariaDB, Dolibarr (+ this custom portal). Avoid heavy dependencies.
-- Dolibarr is the source of truth for customers/quotes/sales orders/suppliers/POs/stock/invoices. The portal talks to it **server-side via REST only**; never write to Dolibarr tables directly.
+- PHP 8.x, HTML/CSS/JS, MySQL/MariaDB. Avoid heavy dependencies. Dolibarr is optional, not a runtime prerequisite.
+- If Dolibarr is adopted later, explicitly define which system owns each entity. Any portal integration must use **server-side REST only**; never write to Dolibarr tables directly. Until that decision, the portal's own database remains authoritative for the workflows implemented in the portal.
+- Current Hostinger shared-plan constraint: do not rely on persistent background workers/daemons. The application uses ordinary PHP requests; scheduled tasks, if needed, must use cron within the plan's limits.
 - Model files and documents must live **outside the public document root**; if the host cannot do that, stop and propose a secure alternative before accepting uploads.
 - Security: HTTPS, secure cookies, server-side authorization on every record/file, CSRF, prepared SQL, output encoding, rate-limited login/reset, `password_hash`, validated uploads, no secrets in repo/logs.
 - Never modify production DB/files without explicit approval and a verified backup. Never ask for passwords in chat.
@@ -59,6 +67,7 @@ Demo data lives only in the developer's local databases. **Do not ship it.** A f
 ### Deliberate deviations / decisions the owner should confirm
 | Decision | Why | Where |
 |---|---|---|
+| Dolibarr is optional and not needed for the current Hostinger test portal | Existing portal provides the current customer/order/staff workflows and basic inventory; no ERP workflow has been selected as a blocker. Add Dolibarr only for specific fuller ERP requirements. | 1, Hostinger test deployment |
 | Staff **tasks, knowledge base/procedures, inventory and team roles live in this portal**, not in Dolibarr's modules | Dolibarr has no procedure/wiki feature; the owner wanted tasks with comments, procedures and role assignment. The brief assigns "projects/tasks" to Dolibarr. | Section 6 |
 | Inventory is in the portal (simple items + movement log) | Owner asked for it. Brief puts stock in Dolibarr. Supplier purchase orders are still expected in Dolibarr. | 6.5 |
 | Staff UI is the portal, not a separate Dolibarr "restricted path" | Simpler for the four users; Dolibarr stays for ERP. | – |

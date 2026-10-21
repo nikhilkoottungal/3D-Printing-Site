@@ -15,6 +15,12 @@ Plain PHP 8 + MySQL, no framework, no Composer, no background processes (fits sh
   - **Customer requests:** quote, status changes (permission per role), file download, optional Dolibarr sync.
 - First setup seeds 10 procedures and 10 implementation tasks taken from the brief.
 
+## Dolibarr decision
+
+Dolibarr is **not required** for the current portal: customer accounts, quote/order workflow, staff tasks and procedures, team roles, and basic inventory are handled here. The portal can operate without an ERP install. Dolibarr remains an optional future integration if the business needs more complete ERP functions such as supplier purchasing, accounting/invoicing, or warehouse management. Those functions are not all provided by the portal's current basic inventory and order workflow. The Hostinger test `/erp` directory was removed before Dolibarr was installed there; the existing portal and its database remain separate and unchanged by that decision.
+
+**Current hosting constraint:** the Hostinger shared plan is not intended for persistent background workers/daemon processes. The portal is designed to run as ordinary PHP web requests; use scheduled cron only for tasks that can run within Hostinger's limits.
+
 ## Layout
 `public/` is the only web-visible folder. `app/`, `sql/`, `storage/` must sit **above** it.
 
