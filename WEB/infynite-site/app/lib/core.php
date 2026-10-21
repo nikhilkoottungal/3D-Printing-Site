@@ -77,7 +77,19 @@ function fmt_bytes(int $b): string
 }
 function money($v): string { return $v === null || $v === '' ? '—' : '₹' . number_format((float) $v, 2); }
 
-function redirect(string $to): void { header('Location: ' . $to); exit; }
+function redirect(string $to): void
+{
+    // Keep application redirects inside the configured mount point when hosted
+    // from a subfolder (for example, /infynite-test).
+    if (str_starts_with($to, '/') && !str_starts_with($to, '//')) {
+        $mountPath = rtrim((string) parse_url((string) cfg('base_url'), PHP_URL_PATH), '/');
+        if ($mountPath !== '' && $to !== $mountPath && !str_starts_with($to, $mountPath . '/')) {
+            $to = $mountPath . $to;
+        }
+    }
+    header('Location: ' . $to);
+    exit;
+}
 function flash(string $msg, string $type = 'ok'): void { $_SESSION['flash'][] = [$type, $msg]; }
 function take_flashes(): array { $f = $_SESSION['flash'] ?? []; unset($_SESSION['flash']); return $f; }
 

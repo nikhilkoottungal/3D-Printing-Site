@@ -19,10 +19,10 @@ Everything is plain PHP + MySQL/MariaDB. No framework, no Composer, no Node, no 
 | Portal (public site, customers, orders, direct orders, tasks, KB, inventory, team, backups page) | Built; **62/62** end-to-end checks pass (`php tools/smoke_test.php`, portable, builds its own DB) on Linux PHP 8.3 + MariaDB |
 | Backup/restore tooling | Built; **22/22** checks pass (`php tools/test_roundtrip.php`); live disaster restore verified, incl. Dolibarr |
 | Dolibarr | **Local test** instance 23.0.4 installed; portal sync (customer + draft proposal) verified; production install **not** done |
-| Windows | Guide written (`docs/WINDOWS_SETUP.md`, mirrors host with Apache/PHP/MariaDB); **untested on Windows** - the owner continues on Windows next |
-| Hostinger | **Nothing deployed. Phase 0 not done** (`docs/PHASE0_HOSTING_CHECKLIST.md`, `tools/phase0_probe.php` ready). Upload limits, private folder above web root, cron, SSH/SFTP, mail delivery, DB count are unverified |
+| Windows | Guide written; PHP 8.5.11 + MariaDB 13.0.2 installed and tests verified locally (see `SCRATCHPAD.md`) |
+| Hostinger | Temporary test deployment live at `https://pink-viper-143770.hostingersite.com/`; clean public root and private app/storage above it. Not production; see “Hostinger test deployment” below. |
 | rclone transfer (host to PC to Google Drive) | **Decided, not built** (owner: use rclone; wait for Phase 0) |
-| Not tested | mobile layout on a real phone, real e-mail delivery, Windows |
+| Not tested | mobile layout on a real phone, real e-mail delivery |
 | Not built | MFA for staff, unit tests beyond the two scripts, supplier POs, Drive adapter, accessibility audit |
 Demo data lives only in the developer's local databases. **Do not ship it.** A fresh install gets starter content from `app/lib/seed.php`.
 
@@ -30,11 +30,21 @@ Demo data lives only in the developer's local databases. **Do not ship it.** A f
 1. `AGENTS.md` (rules for agents). 2. This file. 3. `docs/PHASE0_HOSTING_CHECKLIST.md` (**next milestone**). 4. `docs/WINDOWS_SETUP.md` (local environment mirroring the host). 5. `docs/BACKUP_RESTORE_PLAN.md` (design/decisions) and `docs/BACKUP_OPERATIONS.md` (tools how-to).
 
 ### Immediate next actions (priority order)
-1. Owner sets up Windows (`WINDOWS_SETUP.md`) and runs `php tools\smoke_test.php` and `php tools\test_roundtrip.php` there; agent fixes any Windows-only issue and updates the guide.
-2. Owner runs **Phase 0** on the real Hostinger account and returns the report (`PHASE0_HOSTING_CHECKLIST.md` section F). Agent applies the decision table (section E) and records the facts in a new "Hosting facts" section of this file.
-3. If GO: staging deploy of the portal on a subdomain, real upload-limit test, mail deliverability test; then Dolibarr on an `erp.` subdomain (official release), real GST rate, dedicated API user.
-4. Both owners generate backup keys (`tools/keygen.php`); schedule backups; build the **rclone** transfer (host to owner PC via SFTP/FTPS, PC to Google Drive 10 GB cap) and dead-man alert; pre-launch restore drill from the off-site copy.
-5. Remaining MVP gaps: storage cleanup of old files, MFA, supplier PO list or Dolibarr POs, privacy/terms review by a professional, final test report approved by the owner (brief section 8).
+1. Keep the temporary Hostinger deployment test-only. Rotate the DB password and setup token because their values appeared in the file manager's accessibility output; verify app login/DB connectivity and setup endpoint closure after rotation. Do not paste secrets into chat or docs.
+2. Complete Hostinger checks: PHP version/extensions, upload limits with real STL/3MF files, outgoing mail, HTTPS/cookie behavior, and cron/SSH/SFTP/database limits. Record measured results in `PHASE0_HOSTING_CHECKLIST.md`.
+3. Confirm recoverable backups of the prior root and rollback/staging copies before deleting anything. Only after checks and explicit approval, connect the real domain and progress to production.
+4. Generate backup keys (`tools/keygen.php`), schedule backups, build the **rclone** transfer (host to owner PC via SFTP/FTPS, PC to Google Drive 10 GB cap) and dead-man alert; perform an off-site restore drill before launch.
+5. Remaining MVP gaps: storage cleanup of old files, MFA, supplier PO list or Dolibarr POs, professional privacy/terms review, final test report approved by the owner (brief section 8).
+
+### Hostinger test deployment (2026-10-21)
+
+- URL: `https://pink-viper-143770.hostingersite.com/` (temporary domain; test only).
+- `public_html/` contains only `assets/`, `.htaccess`, and `index.php`. Private `app/` and `storage/` are above the document root; the front controller points to the private app.
+- Previous `infynite-test/` staging copy and old root `index.html` backup were moved above the web root for rollback. The old HTML was downloaded first. Old CSS and package/archive were also moved out of public_html.
+- Staging config was copied into the private app and only its `base_url` was changed. Existing database (`u151540875_infynite_stage`), DB account, setup token, Owner user/password hash, and data were preserved; no migration or credential reset was done. Never document secret values.
+- Browser observations: homepage, `/services`, and logged-in `/staff` work; existing Owner records are present (current tab was `/staff/team`). This is not full production validation.
+- Security: rotate DB password and setup token; both secret values were exposed in file-manager accessibility output during config editing. Then verify connectivity and that setup is closed. Do not repeat the values.
+- Still unverified: real domain, PHP extensions/limits, real upload, mail, HTTPS/cookies, backup automation/off-site recovery, complete mobile/security review, and launch approval.
 
 ## 2. Hard constraints from the brief (do not violate)
 - Use the existing Hostinger **Single** plan: no VPS, Docker, root, persistent Node/Python, or extra paid services; do not upgrade the plan without owner approval.

@@ -58,6 +58,11 @@ function dispatch(): void
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $path = rtrim((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH), '/') ?: '/';
+    // Allow the app to be mounted below the document root (for example /infynite-test).
+    $basePath = rtrim((string) parse_url((string) cfg('base_url'), PHP_URL_PATH), '/');
+    if ($basePath !== '' && ($path === $basePath || str_starts_with($path, $basePath . '/'))) {
+        $path = substr($path, strlen($basePath)) ?: '/';
+    }
     if ($method === 'POST') { csrf_check(); }
     foreach (routes() as [$m, $re, $fn]) {
         if ($m === $method && preg_match('#^' . $re . '$#', $path, $mm)) {

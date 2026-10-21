@@ -2,6 +2,16 @@
 
 Updated: 2026-10-21
 
+## Hostinger test deployment (2026-10-21)
+
+- Test URL: `https://pink-viper-143770.hostingersite.com/` (temporary domain, not production).
+- The public `public_html/` root now contains only `assets/`, `.htaccess`, and `index.php`. Private `app/` and `storage/` are above `public_html/`; the root front controller resolves the app outside the document root.
+- Prior `infynite-test/` staging copy was moved above `public_html/` for rollback. The former root `index.html` was downloaded and retained above the web root as `index.html.hostinger-backup-20261021`; old CSS and deployment archive/package were moved out of the public root too.
+- Staging config was copied into the private app and its `base_url` changed to the temporary root URL. Existing database, DB account, setup token, Owner account, password hashes, and data were retained; no migrations or password/account changes were made. Never put secret values in notes.
+- Browser verified homepage, `/services`, and authenticated `/staff` with existing records; current browser tab was `/staff/team`. This is a functional smoke observation, not a production signoff.
+- Security follow-up: rotate the DB password and setup token because the Hostinger file manager's accessibility output exposed both while config was being edited. Verify DB connectivity and setup endpoint closure afterward.
+- Remaining before production: real-domain routing/HTTPS; Hostinger PHP version/extensions and limits; real STL/3MF upload; outgoing mail; scheduled/off-site backups and restore drill; mobile/security/privacy review; explicit launch approval. Keep rollback copies until a separate backup is confirmed.
+
 ## What this is
 
 Infynite Solutions is a plain PHP 8 web portal backed by MySQL/MariaDB. It has no framework, Composer package, npm build, or background process requirement. `public/` is the only web root; `app/`, `sql/`, `storage/`, `tools/`, and `docs/` must remain outside it.
