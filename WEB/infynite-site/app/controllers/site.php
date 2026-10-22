@@ -32,7 +32,7 @@ function routes(): array
         ['GET', '/staff/inventory/new', 'inv_new_form'], ['POST', '/staff/inventory/new', 'inv_create'],
         ['GET', '/staff/inventory/(\d+)', 'inv_show'], ['POST', '/staff/inventory/(\d+)', 'inv_update'],
         ['POST', '/staff/inventory/(\d+)/move', 'inv_move'],
-        ['GET', '/staff/backups', 'backups_page'],
+        ['GET', '/staff/backups', 'backups_page'], ['POST', '/staff/backups', 'backups_save'], ['POST', '/staff/backups/ftp', 'backups_ftp_configure'], ['POST', '/staff/backups/run', 'backups_run_now'], ['GET', '/staff/backups/status', 'backups_status_json'], ['GET', '/staff/admin/ping', 'admin_ping'], ['POST', '/staff/backups/test-ftp', 'backups_test_ftp'],
         ['GET', '/staff/suppliers', 'sup_list'], ['GET', '/staff/suppliers/new', 'sup_new_form'], ['POST', '/staff/suppliers/new', 'sup_create'],
         ['GET', '/staff/suppliers/(\d+)', 'sup_show'], ['POST', '/staff/suppliers/(\d+)', 'sup_update'],
         ['GET', '/staff/purchase-orders', 'po_list'], ['GET', '/staff/purchase-orders/new', 'po_new_form'], ['POST', '/staff/purchase-orders/new', 'po_create'],

@@ -5,6 +5,8 @@
  *   php tools/restore.php verify  --key=FILE [--src=DIR] [--run=ID]
  *   php tools/restore.php restore --key=FILE [--src=DIR] [--run=ID] --db=NAME=TARGETDB [--db=...] [--files-to=DIR]
  *   php tools/restore.php restore --key=FILE --run=ID --live --yes --confirm=ID      (overwrites the LIVE site; see below)
+ * Add --ftp to any command to take the backups from the FTP server set on the Backups page instead of a folder:
+ *   php tools/restore.php list --ftp          php tools/restore.php verify --ftp --key=FILE --run=ID
  * Default is STAGING: nothing live is touched. --live first takes an encrypted pre-restore snapshot, switches the
  * portal to maintenance mode, restores, checks, and only then lifts maintenance mode.
  * Passphrase: prompted, or env BACKUP_PASSPHRASE.
@@ -87,6 +89,28 @@ try {
     $b = null;
     try { $b = isbk_config($cfgFile); } catch (Throwable $e) { if ($cmd === 'restore' && isset($a['live'])) { throw $e; } }
     $src = is_string($a['src'] ?? null) ? $a['src'] : ($b['dir'] ?? null);
+    if (isset($a['ftp']) && $cmd !== 'help') {
+        // FTP source: load the portal settings (FTP connection), download the run (or just the run list) into a temp folder and use that as --src
+        $_SERVER['REQUEST_URI'] = '/'; $_SERVER['REQUEST_METHOD'] = 'GET';
+        require dirname(__DIR__) . '/app/bootstrap.php';
+        $src = rs_tmp();
+        register_shutdown_function(fn() => isbk_rrmdir($src));
+        if ($cmd === 'list') {
+            $l = offsite_ftp_runs($src);
+            if (!$l['ok']) { isbk_fail('cannot read the FTP server: ' . $l['err']); }
+        } else {
+            $want = is_string($a['run'] ?? null) ? $a['run'] : null;
+            if ($want === null) {
+                $l = offsite_ftp_runs($src);
+                if (!$l['ok']) { isbk_fail('cannot read the FTP server: ' . $l['err']); }
+                if (!$l['runs']) { isbk_fail('no backups on the FTP server'); }
+                $want = array_key_first($l['runs']);   // newest
+                $a['run'] = $want;
+            }
+            isbk_log("downloading run $want from the FTP server...");
+            if ($err = offsite_ftp_fetch($want, $src)) { isbk_fail($err); }
+        }
+    }
     if (!$src && $cmd !== 'help') { isbk_fail('give --src=DIR'); }
 
     if ($cmd === 'list') {

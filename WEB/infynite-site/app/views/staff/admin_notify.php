@@ -1,3 +1,4 @@
+<?php if (can('team.manage')) { require __DIR__ . '/admin_tabs.php'; } ?>
 <div class="top"><div><h2 style="margin:0">Notification rules</h2><span class="muted"><a href="/staff/admin">&larr; Admin settings</a> &middot; Tick who receives each alert by e-mail. People are never told about their own actions.</span></div></div>
 <?php if (!$smtp): ?><div class="errs">E-mail is in "Log only" mode, so these alerts are written to the mail log and not sent. Switch to SMTP in Admin settings.</div><?php endif; ?>
 <form method="post" action="/staff/admin/notifications"><?= csrf_field() ?>

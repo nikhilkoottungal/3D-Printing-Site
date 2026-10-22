@@ -73,7 +73,7 @@ function offsite_test(string $dest): array
 {
     $t = offsite_target($dest);
     if (!$t) { return [false, 'Not configured yet (fill in and save the settings first).']; }
-    $name = '.portal-test-' . bin2hex(random_bytes(3)) . '.txt'; $body = 'Infynite portal test ' . date('c');
+    $name = 'portal-test-' . bin2hex(random_bytes(3)) . '.txt'; $body = 'Infynite portal test ' . date('c');
     [$c, , $e] = rc($t, ['mkdir', $t['spec']], null, 60); if ($c !== 0) { return [false, 'Cannot reach or create the folder: ' . ($e ?: 'error ' . $c)]; }
     [$c, , $e] = rc($t, ['rcat', rc_sub($t, $name)], $body, 60); if ($c !== 0) { return [false, 'Cannot write a file: ' . ($e ?: 'error ' . $c)]; }
     [$c, $o, $e] = rc($t, ['cat', rc_sub($t, $name)], null, 60);
@@ -84,6 +84,7 @@ function offsite_test(string $dest): array
 
 function offsite_backup_dir(): string
 {
+    if (backup_targets() === ['local' => false, 'ftp' => true]) { return backup_staging_dir(); }
     $d = cfg('backup.destinations.0.path');
     return is_string($d) && is_dir($d) ? $d : cfg('storage') . '/backup';
 }
@@ -118,21 +119,25 @@ function offsite_source_zip(): ?string
     foreach ($it as $f) {
         if (!$f->isFile()) { continue; }
         $rel = ltrim(substr($f->getPathname(), strlen($root)), '/');
-        if (in_array($rel, $skip, true) || str_starts_with($rel, 'storage/uploads/') && basename($rel) !== '.htaccess' && basename($rel) !== '.gitkeep' || str_starts_with($rel, 'storage/logs/') && basename($rel) !== '.gitkeep' || str_starts_with($rel, 'storage/backup/') || str_ends_with($rel, '.key') || str_starts_with($rel, '.git/')) { continue; }
+        if (in_array($rel, $skip, true) || str_starts_with($rel, 'storage/uploads/') && basename($rel) !== '.htaccess' && basename($rel) !== '.gitkeep' || str_starts_with($rel, 'storage/logs/') && basename($rel) !== '.gitkeep' || str_starts_with($rel, 'storage/backup') || str_ends_with($rel, '.key') || str_starts_with($rel, '.git/')) { continue; }
         $z->addFile($f->getPathname(), 'infynite-site/' . $rel);
     }
     $z->close();
     return $zp;
 }
 
-/** Copies every enabled dataset to every enabled destination. Returns the list of results and stores it as the last run. */
-function offsite_run(?string $only = null): array
+/**
+ * Copies every enabled dataset to every enabled destination. Returns the list of results and stores it as the last run.
+ * $datasets + $force: copy exactly those datasets to $only even if the destination is not "Enabled" or ticked in the matrix
+ * (used by the scheduled backup when the Backups page is set to "FTP"); the result is then stored as backup_ftp_last.
+ */
+function offsite_run(?string $only = null, ?array $datasets = null, bool $force = false): array
 {
     $res = [];
     foreach (OFFSITE_DESTS as $dest => $_) {
-        if (setting($dest . '_enabled') !== '1' || ($only && $only !== $dest)) { continue; }
+        if (($only && $only !== $dest) || (!$force && setting($dest . '_enabled') !== '1')) { continue; }
         $t = offsite_target($dest);
-        $sets = array_filter(array_keys(OFFSITE_DATASETS), fn($ds) => setting("off_{$ds}_{$dest}") === '1');
+        $sets = $datasets !== null ? array_values(array_intersect($datasets, array_keys(OFFSITE_DATASETS))) : array_filter(array_keys(OFFSITE_DATASETS), fn($ds) => setting("off_{$ds}_{$dest}") === '1');
         if (!$sets) { continue; }
         if (!$t) { foreach ($sets as $ds) { $res[] = ['dest' => $dest, 'set' => $ds, 'ok' => false, 'msg' => 'destination not configured']; } continue; }
         foreach ($sets as $ds) {
@@ -140,10 +145,51 @@ function offsite_run(?string $only = null): array
             $res[] = ['dest' => $dest, 'set' => $ds, 'ok' => $ok, 'msg' => $msg];
         }
     }
-    setting_set('offsite_last', json_encode(['at' => now(), 'results' => $res]));
+    setting_set($force ? 'backup_ftp_last' : 'offsite_last', json_encode(['at' => now(), 'results' => $res]));
     $bad = array_filter($res, fn($r) => !$r['ok']);
     if ($bad) { notify_admins('Off-site copy failed', "These copies failed:\n" . implode("\n", array_map(fn($r) => '- ' . OFFSITE_DESTS[$r['dest']] . ' / ' . OFFSITE_DATASETS[$r['set']][0] . ': ' . $r['msg'], $bad))); }
     return $res;
+}
+
+/** Backup run folders look like 20261022-165500. */
+function offsite_valid_run(string $id): bool { return (bool) preg_match('/^\d{8}-\d{6}$/', $id); }
+
+/** Lists the backup runs stored on the FTP server (reads each run's small meta.json). Returns ['ok' => bool, 'runs' => [id => meta], 'err' => string]. */
+function offsite_ftp_runs(?string $into = null): array
+{
+    $t = offsite_target('ftp');
+    if (!$t) { return ['ok' => false, 'runs' => [], 'err' => 'FTP is not configured']; }
+    $own = $into === null; $tmp = $into ?? sys_get_temp_dir() . '/portal-ftpruns-' . bin2hex(random_bytes(4));
+    @mkdir($tmp, 0700, true);
+    [$c, , $e] = rc($t, ['copy', rc_sub($t, 'backups/runs'), $tmp . '/runs', '--include=*/meta.json'], null, 120);
+    $runs = [];
+    if ($c === 0) {
+        foreach (glob($tmp . '/runs/*/meta.json') ?: [] as $m) {
+            $j = json_decode((string) file_get_contents($m), true);
+            if (is_array($j) && !empty($j['run']) && offsite_valid_run($j['run'])) { $runs[$j['run']] = $j; }
+        }
+        krsort($runs);
+    }
+    if ($own) { foreach (glob($tmp . '/runs/*/meta.json') ?: [] as $m) { @unlink($m); } foreach (glob($tmp . '/runs/*', GLOB_ONLYDIR) ?: [] as $d) { @rmdir($d); } @rmdir($tmp . '/runs'); @rmdir($tmp); }
+    return ['ok' => $c === 0, 'runs' => $runs, 'err' => $c === 0 ? '' : ($e ?: "rclone exit $c")];
+}
+
+/** Downloads one run from the FTP server into $dir (same folder layout as a local backup folder): meta of all runs, the run's core.bak and the parts it uses. Returns an error string or null. */
+function offsite_ftp_fetch(string $runId, string $dir): ?string
+{
+    if (!offsite_valid_run($runId)) { return 'invalid run id'; }
+    $t = offsite_target('ftp'); if (!$t) { return 'FTP is not configured'; }
+    $l = offsite_ftp_runs($dir);
+    if (!$l['ok']) { return 'cannot list the FTP backups: ' . $l['err']; }
+    if (!isset($l['runs'][$runId])) { return "run $runId is not on the FTP server"; }
+    [$c, , $e] = rc($t, ['copy', rc_sub($t, "backups/runs/$runId"), "$dir/runs/$runId"], null, 3600);
+    if ($c !== 0) { return 'download of the run failed: ' . ($e ?: "rclone exit $c"); }
+    foreach ($l['runs'][$runId]['parts_used'] ?? [] as $part) {
+        if (!preg_match('~^parts/[A-Za-z0-9._-]+\.bak$~', $part)) { return 'unexpected part name ' . $part; }
+        [$c, , $e] = rc($t, ['copyto', rc_sub($t, 'backups/' . $part), "$dir/$part"], null, 7200);
+        if ($c !== 0) { return "download of $part failed: " . ($e ?: "rclone exit $c"); }
+    }
+    return null;
 }
 function offsite_copy(array $t, string $ds): array
 {

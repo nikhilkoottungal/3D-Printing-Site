@@ -44,6 +44,8 @@ From `WEB/infynite-site`, copy `app/config.example.php` to `app/config.php` and 
 
 `app/config.php` is a secret file. Never commit or upload it.
 
+The example file intentionally leaves password fields empty or commented as placeholders. Put the real database password, SMTP password, setup token, and backup settings only in the ignored local `app/config.php`. The backup private key and passphrase must remain outside the repository.
+
 ## 5. Start the application
 
 For a local development run:
@@ -83,6 +85,8 @@ The application creates the Owner, applies the schema, loads starter procedures 
 5. Configure notification rules.
 6. Create the encrypted-backup key pair and configure a private destination.
 7. Take a first backup and perform a restore drill using a scratch database.
+
+For Windows, the Backups page can start the scheduled backup directly. For Linux, `deploy/server.sh` and the supplied systemd timer run the same scheduled tool.
 
 ## 8. Verification checklist
 

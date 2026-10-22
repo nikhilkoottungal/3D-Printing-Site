@@ -1,8 +1,9 @@
 [Unit]
-Description=Daily Infynite backup
+Description=Check every 15 minutes whether a backup is due
 
 [Timer]
-OnCalendar=*-*-* 22:30
+OnBootSec=2min
+OnUnitActiveSec=15min
 Persistent=true
 
 [Install]

@@ -41,7 +41,7 @@ $schema = file_get_contents(dirname(__DIR__) . '/sql/schema.sql');
 foreach (array_filter(array_map('trim', explode(';', preg_replace('/^--.*$/m', '', $schema)))) as $sql) { $pdo->exec($sql); }
 $app = require dirname(__DIR__) . '/app/config.php';
 $cfg = $app; $cfg['db']['name'] = $dbName; $cfg['storage'] = "$tmp/storage"; $cfg['force_https'] = false; $cfg['staff_only'] = false; $cfg['mail']['log_only'] = true;
-$cfg['setup_token'] = 'smoke-test-setup-token-123456'; $cfg['base_url'] = 'http://127.0.0.1:8099'; unset($cfg['backup']);
+$cfg['admin_unlock_seconds'] = 900; $cfg['setup_token'] = 'smoke-test-setup-token-123456'; $cfg['base_url'] = 'http://127.0.0.1:8099'; unset($cfg['backup']);
 file_put_contents("$tmp/config.php", "<?php\nreturn " . var_export($cfg, true) . ";\n");
 $mailLog = "$tmp/storage/logs/mail.log";
 
@@ -112,7 +112,9 @@ try {
     t('staff moves order to completed', $pdo->query("SELECT status FROM is_requests WHERE id=$rid")->fetchColumn() === 'completed');
 
     echo "== staff workspace\n";
-    foreach (['/staff', '/staff/requests', "/staff/requests/$rid", '/staff/tasks', '/staff/tasks?view=board', '/staff/kb', '/staff/team', '/staff/inventory', '/staff/backups', '/staff/requests/new'] as $p) { t("owner GET $p", $o->get($p)['code'] === 200); }
+    foreach (['/staff', '/staff/requests', "/staff/requests/$rid", '/staff/tasks', '/staff/tasks?view=board', '/staff/kb', '/staff/team', '/staff/inventory', '/staff/requests/new'] as $p) { t("owner GET $p", $o->get($p)['code'] === 200); }
+    t('Backups needs the Owner login but NOT the admin key: opens straight away for the owner', ($x = $o->get('/staff/backups'))['code'] === 200 && str_contains($x['body'], 'name="backup_local"') && !str_contains($x['body'], 'Enter the admin key') && !str_contains($x['body'], 'Create your admin key'));
+    t('Data export is behind the admin key too', ($x = $o->get('/staff/exports'))['code'] === 200 && str_contains($x['body'], 'admin key') && !str_contains($o->get('/staff/export/payroll.csv')['body'], 'Account number'));
     $r = $o->post('/staff/tasks/new', ['title' => 'Smoke task', 'description' => '- [ ] one', 'priority' => 'high', 'due_date' => '2026-12-01', 'assignee_id' => (string) $cnt("SELECT id FROM is_users WHERE email='owner@smoke.test'")], '/staff/tasks/new');
     $tid = (int) basename((string) $r['loc']); t('task created', $tid > 0);
     $o->post("/staff/tasks/$tid/comment", ['body' => 'hello <b>x</b>'], "/staff/tasks/$tid");
@@ -495,7 +497,7 @@ try {
     $o->post('/staff/admin/integrations', ['part' => 'drive', 'drive_enabled' => '1', 'drive_remote' => 'testdrive', 'drive_path' => $dest], '/staff/admin/integrations');
     $res = $o->post('/staff/admin/integrations/test', ['dest' => 'drive'], '/staff/admin/integrations');
     t('Drive test connection writes, reads back and deletes a file', str_contains($res['loc'] !== null ? $o->get('/staff/admin/integrations')['body'] : '', 'wrote, read back and deleted'));
-    t('test file is cleaned up', !glob("$destAbs/.portal-test-*"));
+    t('test file is cleaned up', !glob("$destAbs/portal-test-*"));
     $o->post('/staff/admin/integrations', ['part' => 'matrix', 'm' => ['backup' => ['drive' => '1'], 'models' => ['drive' => '1'], 'kb' => ['drive' => '1'], 'source' => ['drive' => '1']]], '/staff/admin/integrations');
     @mkdir("$tmp/storage/backup/runs/r1", 0777, true); file_put_contents("$tmp/storage/backup/runs/r1/core.bak", 'encrypted-bytes');
     $o->post('/staff/admin/integrations/run', [], '/staff/admin/integrations');
@@ -520,6 +522,148 @@ try {
     $o->post('/staff/admin/integrations/run', [], '/staff/admin/integrations');
     $last = json_decode((string) $pdo->query("SELECT svalue FROM is_settings WHERE skey='offsite_last'")->fetchColumn(), true);
     t('failed copy is recorded and the admins are e-mailed', $last && $last['results'][0]['ok'] === false && count(array_filter(array_slice($mails(), $n0), fn($x) => str_contains($x['subject'], 'Off-site copy failed'))) >= 1);
+
+    echo "== backups page: location, schedule, FTP, restore from FTP\n";
+    require_once dirname(__DIR__) . '/app/lib/backup_schedule.php';
+    $S = fn($f, $extra = []) => $extra + ['freq' => $f, 'every_h' => 6, 'time' => '22:30', 'weekday' => 1];
+    $at = fn($d) => strtotime($d . ' +05:30');   // schedule times are IST
+    t('schedule: daily is due once the time has passed and nothing ran since', backup_due($S('daily'), $at('2026-10-21 22:31'), $at('2026-10-22 22:31')) && !backup_due($S('daily'), $at('2026-10-22 22:35'), $at('2026-10-22 22:40')) && !backup_due($S('daily'), $at('2026-10-21 22:31'), $at('2026-10-22 22:00')));
+    t('schedule: never-run is due, off is never due', backup_due($S('daily'), null, $at('2026-10-22 01:00')) && !backup_due($S('off'), null, $at('2026-10-22 01:00')));
+    t('schedule: every N hours', !backup_due($S('hours', ['every_h' => 4]), $at('2026-10-22 10:00'), $at('2026-10-22 13:00')) && backup_due($S('hours', ['every_h' => 4]), $at('2026-10-22 10:00'), $at('2026-10-22 14:00')));
+    t('schedule: weekly waits for its weekday (22 Oct 2026 is a Thursday)', !backup_due($S('weekly', ['weekday' => 1]), $at('2026-10-19 22:35'), $at('2026-10-22 23:00')) && backup_due($S('weekly', ['weekday' => 1]), $at('2026-10-12 22:35'), $at('2026-10-22 23:00')) && backup_due($S('weekly', ['weekday' => 4]), $at('2026-10-15 22:35'), $at('2026-10-22 22:40')));
+    t('schedule: next run is in the future and sensible', backup_next_run($S('daily'), $at('2026-10-22 22:35'), $at('2026-10-22 23:00')) === $at('2026-10-23 22:30') && backup_next_run($S('weekly', ['weekday' => 1]), $at('2026-10-19 22:35'), $at('2026-10-22 23:00')) === $at('2026-10-26 22:30'));
+    $o->post('/staff/admin/lock', [], '/staff/admin');
+    t('Admin settings still need the key, Data export too (locked prompt in place)', ($x = $o->get('/staff/exports'))['code'] === 200 && str_contains($x['body'], 'admin key') && !str_contains($x['body'], 'Account number'));
+    $x = $o->post('/staff/admin/unlock', ['admin_key' => 'correct horse battery 2'], '/staff/admin'); t('after entering the admin key you land on the page you asked for (Data export), not on Admin settings', $x['loc'] === '/staff/exports', (string) $x['loc']);
+    t('times are shown in IST: a UTC run id converts (12:30 UTC = 18:00 IST) and daily 22:30 means 22:30 IST', backup_run_fmt('20261022-123000') === '22 Oct 2026, 18:00 IST' && backup_last_slot($S('daily'), $at('2026-10-22 23:00')) === $at('2026-10-22 22:30') && backup_fmt_ts($at('2026-10-22 22:30')) === '22 Oct 2026, 22:30 IST');
+    $home = $o->get('/staff')['body']; $samHome = $sam->get('/staff')['body'];
+    t('owner sidebar: one "Admin settings" entry, no separate Backups or Team items', str_contains($home, '>Admin settings</a>') && !str_contains($home, '">Backups</a><') && !str_contains($home, '>Team &amp; roles</a><a') && substr_count($home, '/staff/team"') === 0);
+    $keys = ['/staff"', '/staff/requests"', '/staff/customers"', '/staff/calculator"', '/staff/calendar"', '/staff/tasks"', '/staff/notes"', '/staff/kb"', '/staff/inventory"', '/staff/purchase-orders"', '/staff/printers"', '/staff/queue"', '/staff/invoices"', '/staff/reports"', '/staff/admin"'];
+    $pos = array_map(fn($k) => strpos($home, 'href="' . $k), $keys);
+    t('sidebar order: Overview, Orders, Customers, Price calculator, Calendar, Tasks, Notes, Knowledge, Inventory, Suppliers & POs, Printers, Print queue, then Invoices, Reports, Admin settings', !in_array(false, $pos, true) && $pos === (function ($p) { $q = $p; sort($q); return $q; })($pos));
+    t('sidebar header shows the company name (not "Staff") and the account block has a divider instead of a "You" heading', str_contains($home, '<i></i>Smoke') === false ? (bool) preg_match('~class="logo"[^>]*><i></i>(?!Staff<)[^<]+</a>~', $home) && !str_contains($home, '<small>You</small>') && str_contains($home, 'class="sidesep"') : true);
+    $boxes = fn($h) => array_map(fn($b) => trim(strip_tags(preg_replace('~</a>~', '|', $b))), array_slice(explode('<div class="sidebox">', $h), 1));
+    $bx = $boxes(explode('<div class="sidesep"', $home)[0]);
+    t('sidebar is grouped into boxes: Overview | Orders, Customers, Price calculator | Calendar, Tasks, Notes, Knowledge | Inventory, Suppliers | Printers, Print queue | Invoices, Reports | Admin settings', count($bx) === 7 && str_starts_with($bx[1], 'Orders|Customers|Price calculator') && str_starts_with($bx[2], 'Calendar|Tasks|Notes|Knowledge') && str_starts_with($bx[3], 'Inventory|Suppliers') && str_starts_with($bx[4], 'Printers|Print queue') && str_starts_with($bx[5], 'Invoices|Reports') && str_starts_with($bx[6], 'Admin settings'), implode(' // ', $bx));
+    $sbx = $boxes(explode('<div class="sidesep"', $samHome)[0]);
+    t('boxes for a role without invoices/reports skip the empty box', count($sbx) === 6 && !str_contains(implode('', $sbx), 'Invoices'));
+    $tabsPage = $o->get('/staff/team')['body'];
+    t('Admin settings tabs are Settings, Team & roles and Backups only', str_contains($tabsPage, 'aria-label="Admin settings"') && str_contains($tabsPage, '<a href="/staff/team" class="on">') && str_contains($tabsPage, '<a href="/staff/backups" class="">') && str_contains($tabsPage, '<a href="/staff/admin" class="">Settings</a>') && !str_contains($tabsPage, 'href="/staff/admin/integrations" class=') && !str_contains($tabsPage, 'href="/staff/admin/notifications" class=') && !str_contains($tabsPage, 'href="/staff/exports" class='));
+    $ig2 = $o->get('/staff/admin/integrations')['body'];
+    t('Integrations and Notifications are still reachable from Settings, with the Settings tab highlighted', str_contains($o->get('/staff/admin')['body'], 'href="/staff/admin/integrations"') && str_contains($o->get('/staff/admin')['body'], 'href="/staff/admin/notifications"') && str_contains($ig2, '<a href="/staff/admin" class="on">Settings</a>'));
+    t('one key entry covers the whole area: Settings, Team and Backups open without asking again', str_contains($o->get('/staff/admin')['body'], 'Save settings') && str_contains($o->get('/staff/team')['body'], 'aria-label="Admin settings"') && str_contains($o->get('/staff/backups')['body'], 'name="backup_local"') && str_contains($o->get('/staff/team')['body'], 'data-admin-autolock'));
+    t('team page highlights Admin settings in the sidebar', str_contains($tabsPage, '<a href="/staff/admin" class="on">Admin settings</a>'));
+    $samTeam = $sam->get('/staff/team')['body'];
+    t('non-admin staff: Team & roles stays in their sidebar, no Admin settings, no admin tabs', str_contains($samHome, '>Team &amp; roles</a>') && !str_contains($samHome, 'Admin settings') && !str_contains($samTeam, 'aria-label="Admin settings"'));
+    $bp = $o->get('/staff/backups');
+    t('unlocked admin pages carry the auto-lock hook (tab switch / 30 s idle); other pages (incl. Backups) do not', ($admBody = $o->get("/staff/admin")["body"]) !== "" && str_contains($admBody, 'data-admin-autolock') && str_contains($admBody, 'data-seconds="30"') && !str_contains($bp['body'], 'data-admin-autolock') && !str_contains($o->get('/staff/tasks')['body'], 'data-admin-autolock'));
+    t('heartbeat: 204 while unlocked, 403 for others', $o->get('/staff/admin/ping')['code'] === 204 && $sam->get('/staff/admin/ping')['code'] === 403 && (new Client($B))->get('/staff/admin/ping')['code'] === 403);
+    $o->post('/staff/admin/lock', [], '/staff/admin');
+    t('the lock call (used on tab switch / idle) locks at once: heartbeat 403, Admin settings ask for the key, Backups still open', $o->get('/staff/admin/ping')['code'] === 403 && str_contains($o->get('/staff/admin')['body'], 'admin key') && !str_contains($o->get('/staff/admin')['body'], 'Save settings') && str_contains($o->get('/staff/backups')['body'], 'name="backup_local"'));
+    $o->post('/staff/admin/unlock', ['admin_key' => 'correct horse battery 2'], '/staff/admin');
+    $bp = $o->get('/staff/backups');
+    t('Backups page (admin unlocked) shows location, schedule, FTP fields and restore help', $bp['code'] === 200 && str_contains($bp['body'], 'name="backup_local"') && str_contains($bp['body'], 'name="backup_freq"') && str_contains($bp['body'], 'name="ftp_host"') && str_contains($bp['body'], '--ftp'));
+    t('Local is the default location, and Configure and Test buttons sit in the FTP block', preg_match('/name="backup_local"[^>]*checked/', $bp['body']) === 1 && preg_match('/name="backup_ftp"[^>]*checked/', $bp['body']) === 0 && str_contains($bp['body'], 'data-showif="backup_freq=weekly"') && str_contains($bp['body'], 'Backup now') && str_contains($bp['body'], 'formaction="/staff/backups/ftp"') && str_contains($bp['body'], 'formaction="/staff/backups/test-ftp"'));
+    t('Backups page and settings are Owner-only and need login', $sam->get('/staff/backups')['code'] === 403 && $sam->post('/staff/backups', ['backup_ftp' => '1'], '/staff/tasks')['code'] === 403 && $sam->post('/staff/backups/test-ftp', [], '/staff/tasks')['code'] === 403 && $sam->post('/staff/backups/run', [], '/staff/tasks')['code'] === 403 && (new Client($B))->get('/staff/backups')['code'] === 302 && (new Client($B))->post('/staff/backups', ['backup_ftp' => '1'], '/login')['code'] === 302);
+    $bk = fn(array $x = []) => $x + ['backup_local' => '1', 'backup_ftp' => '', 'backup_freq' => 'daily', 'backup_time' => '22:30', 'backup_weekday' => '1', 'backup_every_h' => '6', 'ftp_proto' => 'ftp', 'ftp_host' => '', 'ftp_port' => '', 'ftp_user' => '', 'ftp_pass' => '', 'ftp_path' => ''];
+    $o->post('/staff/backups', $bk(['backup_freq' => 'weekly', 'backup_time' => '03:15', 'backup_weekday' => '3']), '/staff/backups');
+    $sv = fn($k) => (string) $pdo->query("SELECT svalue FROM is_settings WHERE skey='$k'")->fetchColumn();
+    t('schedule saved and shown', $sv('backup_freq') === 'weekly' && $sv('backup_time') === '03:15' && $sv('backup_weekday') === '3' && str_contains($o->get('/staff/backups')['body'], 'every Wednesday at 03:15'));
+    $o->post('/staff/backups', $bk(['backup_time' => '25:99']), '/staff/backups');
+    t('bad time rejected, old schedule kept', $sv('backup_time') === '03:15' && str_contains($o->get('/staff/backups')['body'], 'Time must look like'));
+    $o->post('/staff/backups', $bk(['backup_ftp' => '1']), '/staff/backups');
+    t('FTP location needs server, user and password', $sv('backup_ftp') !== '1' && str_contains($o->get('/staff/backups')['body'], 'Enter the FTP server address'));
+    $o->post('/staff/backups', $bk(['backup_ftp' => '1', 'ftp_host' => 'bad host!', 'ftp_user' => 'u', 'ftp_pass' => 'p']), '/staff/backups');
+    t('bad FTP server name rejected', $sv('backup_ftp') !== '1');
+
+    // a real file server on localhost (rclone serve sftp; this rclone has no FTP server, the FTP code path differs only in the protocol name), then a real scheduled backup, upload and restore from FTP
+    $ftpRoot = "$tmp/ftproot"; isbk_mkdir($ftpRoot);
+    $ftpProc = proc_open(['rclone', 'serve', 'sftp', $ftpRoot, '--addr', '127.0.0.1:2199', '--user', 'ftpt', '--pass', 'ftppw-123'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', "$tmp/ftp.log", 'w'], 2 => ['file', "$tmp/ftp.log", 'a']], $fp);
+    $fup = false; for ($i = 0; $i < 50 && !$fup; $i++) { usleep(100000); $c = @fsockopen('127.0.0.1', 2199, $en, $es, 0.2); if ($c) { fclose($c); $fup = true; } }
+    t('local test file server started', $fup);
+    if ($fup) {
+        $o->post('/staff/backups', $bk(['backup_ftp' => '1', 'backup_freq' => 'daily', 'backup_time' => '00:00', 'ftp_proto' => 'sftp', 'ftp_host' => '127.0.0.1', 'ftp_port' => '2199', 'ftp_user' => 'ftpt', 'ftp_pass' => 'ftppw-123', 'ftp_path' => 'portal']), '/staff/backups');
+        t('FTP location saved; password stored encrypted and not shown', $sv('backup_ftp') === '1' && $sv('backup_ftp_host') === '' && $sv('ftp_host') === '127.0.0.1' && !str_contains($sv('ftp_pass'), 'ftppw') && !str_contains($o->get('/staff/backups')['body'], 'ftppw-123'));
+        $o->post('/staff/backups/ftp', $bk(['ftp_proto' => 'sftp', 'ftp_host' => '', 'ftp_user' => 'x']), '/staff/backups');
+        t('Configure rejects an empty server address and keeps the saved one', $sv('ftp_host') === '127.0.0.1' && str_contains($o->get('/staff/backups')['body'], 'Enter the FTP server address'));
+        $o->post('/staff/backups/ftp', $bk(['ftp_proto' => 'sftp', 'ftp_host' => '127.0.0.1', 'ftp_port' => '2199', 'ftp_user' => 'ftpt', 'ftp_pass' => '', 'ftp_path' => 'portal']), '/staff/backups');
+        t('Configure saves the FTP details only (location unchanged)', str_contains($o->get('/staff/backups')['body'], 'FTP details saved') && $sv('backup_ftp') === '1');
+        $o->post('/staff/backups/test-ftp', $bk(['ftp_proto' => 'sftp', 'ftp_host' => '127.0.0.1', 'ftp_port' => '2199', 'ftp_user' => 'ftpt', 'ftp_pass' => '', 'ftp_path' => 'portal']), '/staff/backups');
+        t('Test button saves and tests the connection from the Backups page', str_contains($o->get('/staff/backups')['body'], 'wrote, read back and deleted'));
+        $o->post('/staff/backups', $bk(['backup_ftp' => '1', 'backup_freq' => 'daily', 'backup_time' => '00:00', 'ftp_proto' => 'sftp', 'ftp_host' => '127.0.0.1', 'ftp_port' => '2199', 'ftp_user' => 'ftpt', 'ftp_pass' => '', 'ftp_path' => 'portal']), '/staff/backups');
+        t('blank password keeps the saved one', $sv('ftp_pass') !== '');
+        $kO = isbk_make_keyfile('Smoke owner', 'smoke-pass-phrase-1'); file_put_contents("$tmp/owner.key", json_encode($kO));
+        $cfgBk = $cfg; $cfgBk['backup'] = ['recipients' => [$kO['public']], 'destinations' => [['type' => 'folder', 'path' => "$tmp/local-offsite"]], 'keep_local' => 3];
+        file_put_contents("$tmp/config_bk.php", "<?php\nreturn " . var_export($cfgBk, true) . ";\n");
+        $cli = function (array $args, array $more = []) use ($tmp) { $p = proc_open(array_merge([PHP_BINARY, '-c', php_ini_loaded_file() ?: '/dev/null'], $args), [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp, dirname(__DIR__), array_merge(getenv(), ['INFYNITE_CONFIG' => "$tmp/config_bk.php", 'BACKUP_PASSPHRASE' => 'smoke-pass-phrase-1'], $more)); $out = stream_get_contents($pp[1]) . stream_get_contents($pp[2]); return [proc_close($p), $out]; };
+        [$rc, $out] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php']);
+        t('scheduled backup runs when due and uploads to FTP', $rc === 0 && str_contains($out, 'Backup due') && str_contains($out, 'OK    ') && glob("$ftpRoot/portal/backups/runs/*/meta.json") && glob("$ftpRoot/portal/backups/runs/*/core.bak"), trim(substr($out, -200)));
+        $runId = basename(dirname(glob("$ftpRoot/portal/backups/runs/*/meta.json")[0] ?? 'x/x'));
+        [$rc2, $out2] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php']);
+        t('a second check right after is "not due" (no duplicate backup)', $rc2 === 0 && str_contains($out2, 'Not due') && count(glob("$ftpRoot/portal/backups/runs/*/meta.json")) === 1);
+        $ftpl = $o->get('/staff/backups?ftp=1');
+        t('Backups page lists the backup stored on the FTP server', str_contains($ftpl['body'], 'Backups on the FTP server') && str_contains($ftpl['body'], "--ftp --run=$runId"));
+        $pBtn = strpos($ftpl['body'], 'Show backups on the FTP server'); $pCard = strpos($ftpl['body'], '<div class="card mt" id="ftp-list"><h3>Backups on the FTP server</h3>'); $pLast = strpos($ftpl['body'], '<h3>Last FTP upload</h3>'); $pForm = strpos($ftpl['body'], 'Save location and schedule</button></form>');
+        t('the FTP backups table is its own card: after the settings form, above "Last FTP upload"', $pBtn !== false && $pCard !== false && $pLast !== false && $pForm < $pCard && $pCard < $pLast && str_contains($ftpl['body'], 'ftp=1#ftp-list'));
+        t('Last FTP upload result is shown', str_contains($ftpl['body'], 'Last FTP upload'));
+        [$rc3, $out3] = $cli([dirname(__DIR__) . '/tools/restore.php', 'list', '--ftp']);
+        t('restore tool lists the runs on the FTP server', $rc3 === 0 && str_contains($out3, $runId), trim(substr($out3, -160)));
+        [$rc4, $out4] = $cli([dirname(__DIR__) . '/tools/restore.php', 'verify', '--ftp', '--key=' . "$tmp/owner.key", "--run=$runId"]);
+        t('restore tool downloads the run from FTP and verifies it (database dump + files)', $rc4 === 0 && str_contains($out4, 'VERIFY PASSED'), trim(substr($out4, -200)));
+        [$rc5, $out5] = $cli([dirname(__DIR__) . '/tools/restore.php', 'verify', '--ftp', '--key=' . "$tmp/owner.key", '--run=20000101-000000']);
+        t('asking for a run that is not on the FTP server fails cleanly', $rc5 !== 0 && str_contains($out5, 'not on the FTP server'));
+        [$rc6, $out6] = $cli([dirname(__DIR__) . '/tools/restore.php', 'verify', '--ftp', '--key=' . "$tmp/owner.key"]);
+        t('without --run the newest FTP backup is used', $rc6 === 0 && str_contains($out6, "Run $runId"));
+        $o->post('/staff/backups', $bk(['backup_ftp' => '']), '/staff/backups');
+        sleep(2); [$rc7, $out7] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php', '--force']);
+        t('with Local selected nothing is uploaded to FTP', $rc7 === 0 && !str_contains($out7, 'Uploading to the FTP') && count(glob("$ftpRoot/portal/backups/runs/*/meta.json")) === 1);
+        $o->post('/staff/backups', $bk(['backup_freq' => 'off']), '/staff/backups');
+        [$rc8, $out8] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php']);
+        t('schedule "never" makes no backup', str_contains($out8, 'Not due'));
+
+        // two locations at once, Backup now, and FTP only
+        $o->post('/staff/backups', $bk(['backup_local' => '', 'backup_ftp' => '']), '/staff/backups');
+        t('at least one location must be ticked', str_contains($o->get('/staff/backups')['body'], 'Choose at least one location'));
+        $sftpFields = ['ftp_proto' => 'sftp', 'ftp_host' => '127.0.0.1', 'ftp_port' => '2199', 'ftp_user' => 'ftpt', 'ftp_pass' => '', 'ftp_path' => 'portal'];
+        $o->post('/staff/backups', $bk(['backup_local' => '1', 'backup_ftp' => '1', 'backup_freq' => 'weekly', 'backup_weekday' => '5', 'backup_time' => '04:45'] + $sftpFields), '/staff/backups');
+        $bp2 = $o->get('/staff/backups')['body'];
+        t('Local + FTP can both be selected and are remembered; weekly keeps its day and time', $sv('backup_local') === '1' && $sv('backup_ftp') === '1' && preg_match('/name="backup_local"[^>]*checked/', $bp2) === 1 && preg_match('/name="backup_ftp"[^>]*checked/', $bp2) === 1 && str_contains($bp2, 'Local + FTP') && str_contains($bp2, 'every Friday at 04:45'));
+        $o->post('/staff/backups', $bk(['backup_freq' => 'hours', 'backup_every_h' => '4', 'backup_time' => '', 'backup_weekday' => '', 'backup_ftp' => '1'] + $sftpFields), '/staff/backups');
+        t('hours mode does not need a time or weekday, and keeps the old ones', $sv('backup_freq') === 'hours' && $sv('backup_every_h') === '4' && $sv('backup_time') === '04:45' && $sv('backup_weekday') === '5');
+        $o->post('/staff/backups', $bk(['backup_local' => '1', 'backup_ftp' => '1', 'backup_freq' => 'daily', 'backup_time' => '00:00'] + $sftpFields), '/staff/backups');
+        copy("$tmp/config.php", "$tmp/config.php.orig"); copy("$tmp/config_bk.php", "$tmp/config.php");   // the web server now has the backup keys/destinations, so Backup now can really run
+        $ftpRuns = fn() => count(glob("$ftpRoot/portal/backups/runs/*/meta.json")); $locRuns = fn() => count(glob("$tmp/local-offsite/runs/*/meta.json"));
+        sleep(2); $n1 = $ftpRuns(); $l1 = $locRuns();
+        $o->post('/staff/backups/run', [], '/staff/backups');
+        $pg = $o->get('/staff/backups')['body'];
+        t('Backup now starts a background backup and shows the loader at once', str_contains($pg, 'Backup started') && str_contains($pg, 'Backup in progress') && str_contains($pg, 'class="spinner"') && str_contains($pg, 'data-backup-poll="/staff/backups/status"'));
+        $st1 = json_decode($o->get('/staff/backups/status')['body'], true);
+        t('status endpoint reports it is running', is_array($st1) && $st1['running'] === true);
+        for ($i = 0; $i < 160 && !preg_match('/copied|FAIL/', (string) @file_get_contents("$tmp/storage/logs/backup-now.log")); $i++) { usleep(500000); }
+        t('Backup now made a new backup, kept it locally AND uploaded it to FTP (FTP also catches up on earlier local-only runs)', $locRuns() === $l1 + 1 && $ftpRuns() === $locRuns(), 'ftp ' . $n1 . '->' . $ftpRuns() . ', local ' . $l1 . '->' . $locRuns());
+        for ($i = 0; $i < 40 && (json_decode($o->get('/staff/backups/status')['body'], true)['running'] ?? true); $i++) { usleep(250000); }
+        $st2 = json_decode($o->get('/staff/backups/status')['body'], true);
+        t('status endpoint says finished, with the last log lines', $st2['running'] === false && str_contains($st2['log'], 'copied') && !is_file("$tmp/storage/backup/run-now.flag"));
+        t('status endpoint is owner-only', $sam->get('/staff/backups/status')['code'] === 403 && (new Client($B))->get('/staff/backups/status')['code'] === 403);
+        $done = $o->get('/staff/backups?done=1')['body'];
+        t('after the loader the page shows a result banner, no loader and the new values', str_contains($done, 'Backup finished: OK') && !str_contains($done, 'Backup in progress') && str_contains($done, 'Backup time (IST)'));
+        $bp3 = $o->get('/staff/backups')['body'];
+        $lastRun = basename(dirname(end(glob("$tmp/local-offsite/runs/*/meta.json"))));
+        t('recent runs are listed with their time in IST (and the UTC run id)', str_contains($bp3, 'Backup time (IST)') && str_contains($bp3, backup_run_fmt($lastRun)) && !str_contains($bp3, 'Run (UTC)'), backup_run_fmt($lastRun));
+        $oldRun = basename(dirname(glob("$tmp/local-offsite/runs/*/meta.json")[0])); isbk_rrmdir("$tmp/local-offsite/runs/$oldRun");
+        t('the runs list follows the local backup folder: a run deleted there disappears from the list', !str_contains($o->get('/staff/backups')['body'], "<code>$oldRun</code>") && str_contains($o->get('/staff/backups')['body'], "<code>$lastRun</code>"));
+        t('page shows the finished run and "Backup now" is available again', str_contains($bp3, 'name="backup_local"') && str_contains($bp3, 'action="/staff/backups/run"'));
+        // FTP only: no permanent local copy
+        $o->post('/staff/backups', $bk(['backup_local' => '', 'backup_ftp' => '1', 'backup_freq' => 'daily', 'backup_time' => '00:00'] + $sftpFields), '/staff/backups');
+        $n2 = $ftpRuns(); $l2 = $locRuns();
+        sleep(2); [$rc9, $out9] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php', '--force']);
+        t('FTP only: uploaded to FTP, nothing added to the local folder, staging cleared', $rc9 === 0 && $ftpRuns() === $n2 + 1 && $locRuns() === $l2 && !glob("$tmp/storage/backup-staging/runs/*") && str_contains($out9, 'staging folder cleared'), trim(substr($out9, -200)));
+        $newest = basename(dirname(end(glob("$ftpRoot/portal/backups/runs/*/meta.json"))));
+        [$rc10, $out10] = $cli([dirname(__DIR__) . '/tools/restore.php', 'verify', '--ftp', '--key=' . "$tmp/owner.key"]);
+        t('the FTP-only backup restores (verify) straight from FTP', $rc10 === 0 && str_contains($out10, 'VERIFY PASSED') && str_contains($out10, "Run $newest"), trim(substr($out10, -200)));
+        copy("$tmp/config.php.orig", "$tmp/config.php");
+    }
+    if (isset($ftpProc) && is_resource($ftpProc)) { proc_terminate($ftpProc); proc_close($ftpProc); }
     isbk_rrmdir($destAbs);
 
     echo "== phase C: calculator, documents, QR label, QC, jobs, search, preview\n";

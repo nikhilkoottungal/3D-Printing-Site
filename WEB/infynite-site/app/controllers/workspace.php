@@ -180,10 +180,10 @@ function calendar_page(): void
 
 /* ================= data export ================= */
 const EXPORTS = ['customers' => 'Customers', 'orders' => 'Orders', 'inventory' => 'Inventory items', 'suppliers' => 'Suppliers', 'purchase_orders' => 'Purchase orders', 'bills' => 'Supplier bills', 'expenses' => 'Expenses', 'tasks' => 'Tasks', 'payroll' => 'Payroll sheet: staff bank details (sensitive)'];
-function exports_page(): void { $u = require_staff('team.manage'); render('staff/exports', ['title' => 'Data export', 'nav' => 'reports', 'u' => $u], 'staff'); }
+function exports_page(): void { $u = admin_guard('settings', 'Data export'); render('staff/exports', ['title' => 'Data export', 'nav' => 'admin', 'atab' => 'settings', 'u' => $u], 'staff'); }
 function export_csv(string $which): void
 {
-    require_staff('team.manage');
+    admin_guard('settings', 'Data export');
     if ($which === 'payroll') {
         header('Content-Type: text/csv; charset=utf-8'); header('Content-Disposition: attachment; filename="payroll-' . date('Ymd') . '.csv"');
         echo "\xEF\xBB\xBF" . implode(',', array_map('csv_cell', ['Name', 'E-mail', 'Designation', 'Account holder', 'Bank', 'Account number', 'IFSC', 'UPI', 'PAN'])) . "\r\n";

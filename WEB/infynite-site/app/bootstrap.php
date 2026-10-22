@@ -8,7 +8,7 @@ if (!is_file($__cfgFile)) {
 }
 $GLOBALS['CFG'] = require $__cfgFile;
 
-foreach (['core', 'auth', 'markdown', 'mail', 'upload', 'seed', 'settings', 'secret', 'pdf', 'offsite', 'smtp', 'notify', 'totp', 'qr', 'session_rules', 'validate', 'migrate'] as $f) {
+foreach (['core', 'auth', 'markdown', 'mail', 'upload', 'seed', 'settings', 'secret', 'pdf', 'offsite', 'backup_schedule', 'smtp', 'notify', 'totp', 'qr', 'session_rules', 'validate', 'migrate'] as $f) {
     require APP_ROOT . '/app/lib/' . $f . '.php';
 }
 foreach (['site', 'auth', 'orders_common', 'staff', 'requests', 'tasks', 'kb', 'team', 'inventory', 'backups', 'admin', 'integrations', 'invoices', 'account', 'profile', 'production', 'search', 'workspace', 'customers', 'purchasing', 'billing', 'reports'] as $f) {

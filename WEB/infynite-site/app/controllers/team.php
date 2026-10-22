@@ -3,12 +3,13 @@
 function team_list(): void
 {
     $u = require_staff();
+    if (can('team.manage')) { admin_unlocked(); }   // same admin session as the other tabs: keeps it alive, no extra key prompt
     $people = all("SELECT u.*, (SELECT COUNT(*) FROM is_tasks t WHERE t.assignee_id=u.id AND t.status <> 'done') open_tasks FROM is_users u WHERE u.role <> 'customer' ORDER BY u.active DESC, u.name");
     $customers = (int) one("SELECT COUNT(*) c FROM is_users WHERE role='customer'")['c'];
     $reqs = all("SELECT r.*, t.name tname, t.email temail, b.name bname FROM is_admin_requests r JOIN is_users t ON t.id=r.target_id JOIN is_users b ON b.id=r.requested_by WHERE r.status='pending' ORDER BY r.id");
     foreach ($reqs as &$r) { $r['votes'] = array_column(all('SELECT user_id, decision FROM is_admin_approvals WHERE request_id=?', [$r['id']]), 'decision', 'user_id'); } unset($r);
     $admins = all("SELECT id,name FROM is_users WHERE role='owner' AND active=1 ORDER BY name");
-    render('staff/team', ['title' => 'Team & roles', 'nav' => 'team', 'people' => $people, 'u' => $u, 'customers' => $customers, 'link' => $_SESSION['new_staff_link'] ?? null, 'reqs' => $reqs, 'admins' => $admins], 'staff');
+    render('staff/team', ['title' => 'Team & roles', 'nav' => can('team.manage') ? 'admin' : 'team', 'atab' => 'team', 'people' => $people, 'u' => $u, 'customers' => $customers, 'link' => $_SESSION['new_staff_link'] ?? null, 'reqs' => $reqs, 'admins' => $admins], 'staff');
     unset($_SESSION['new_staff_link']);
 }
 

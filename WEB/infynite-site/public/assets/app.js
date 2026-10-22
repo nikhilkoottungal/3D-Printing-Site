@@ -1,4 +1,15 @@
 // No inline scripts are allowed by the CSP; behaviour hooks via data-attributes.
+// data-showif="field=a|b": show this element only while the named field has one of these values (all stay visible without JS).
+(function () {
+  function apply() {
+    document.querySelectorAll('[data-showif]').forEach(function (el) {
+      var p = el.getAttribute('data-showif').split('='), f = el.closest('form') && el.closest('form').elements[p[0]];
+      if (f) el.hidden = p[1].split('|').indexOf(f.value) < 0;
+    });
+  }
+  document.addEventListener('change', apply);
+  document.addEventListener('DOMContentLoaded', apply);
+})();
 document.addEventListener('click', function (ev) {
   var el = ev.target.closest('[data-confirm]');
   if (el && !window.confirm(el.getAttribute('data-confirm'))) ev.preventDefault();
@@ -76,4 +87,49 @@ document.addEventListener('DOMContentLoaded', function () {
       fetch('/staff/ping', { credentials: 'same-origin' }).then(function (r) { if (r.redirected) { window.location.href = r.url; } }).catch(function () {});
     }
   }, 5000);
+})();
+
+// Backups page: loader while a backup runs; polls the status and reloads (with the new values) when it is finished.
+(function () {
+  document.addEventListener('submit', function (ev) {
+    var b = ev.target.querySelector && ev.target.querySelector('button[data-loading]');
+    if (!b || ev.defaultPrevented) return;
+    setTimeout(function () { b.disabled = true; b.textContent = b.getAttribute('data-loading'); }, 0);
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    var box = document.querySelector('[data-backup-poll]');
+    if (!box || !window.fetch) return;
+    var log = box.querySelector('[data-backup-log]'), url = box.getAttribute('data-backup-poll'), fails = 0;
+    function tick() {
+      fetch(url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (r.status === 403) { window.location.reload(); throw 0; } return r.json(); }).then(function (j) {
+        fails = 0;
+        if (log && j.log) log.textContent = j.log;
+        if (j.running) { setTimeout(tick, 2000); } else { window.location.replace('/staff/backups?done=1'); }
+      }).catch(function () { if (++fails < 30) setTimeout(tick, 3000); });
+    }
+    setTimeout(tick, 1500);
+  });
+})();
+
+// Admin pages: lock at once when the browser tab is hidden or after 30 s without activity; heartbeat while the person is active.
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    var m = document.querySelector('[data-admin-autolock]');
+    if (!m || !window.fetch) return;
+    var csrf = m.getAttribute('data-csrf'), idleMs = (parseInt(m.getAttribute('data-seconds'), 10) || 30) * 1000, last = Date.now(), pinged = 0, locked = false, idle;
+    function lock() {
+      if (locked) return; locked = true;
+      var f = new FormData(); f.append('_csrf', csrf);
+      fetch('/staff/admin/lock', { method: 'POST', body: f, credentials: 'same-origin', keepalive: true }).then(function () { window.location.reload(); }, function () { window.location.reload(); });
+    }
+    function arm() { clearTimeout(idle); idle = setTimeout(lock, idleMs); }
+    function active() {
+      last = Date.now(); arm();
+      if (Date.now() - pinged > 8000) { pinged = Date.now(); fetch('/staff/admin/ping', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (r.status === 403) window.location.reload(); }, function () {}); }
+    }
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(function (e) { document.addEventListener(e, active, { passive: true }); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) lock(); else if (locked) window.location.reload(); });
+    window.addEventListener('pageshow', function (e) { if (e.persisted) window.location.reload(); });
+    arm();
+  });
 })();

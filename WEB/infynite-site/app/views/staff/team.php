@@ -1,4 +1,5 @@
 <?php $owner = can('team.manage'); ?>
+<?php if (can('team.manage')) { require __DIR__ . '/admin_tabs.php'; } ?>
 <div class="top"><div><h2 style="margin:0">Team &amp; roles</h2><span class="muted"><?= (int) $customers ?> customers on record</span></div></div>
 <?php if ($link): ?><div class="card mb"><h3>Password-setup link (shown once)</h3><p class="muted">Send this to the new person if the email does not arrive. Valid 2 hours; treat it as a secret.</p><input readonly value="<?= e($link) ?>"></div><?php endif; ?>
 <?php if (!empty($reqs)): ?><div class="card mb"><h3>Admin removal waiting for agreement</h3><p class="muted">An admin can only be removed when every admin, including that person, agrees.</p>

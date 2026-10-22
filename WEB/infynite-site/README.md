@@ -9,7 +9,6 @@ A staff-only business system for a 3D printing company: orders, production, stoc
 ## Read next
 | Document | For |
 |---|---|
-| `docs/FRESH_INSTALLATION.md` | required components and first-user setup |
 | `docs/SYSTEM_WRITEUP.md` | what was built, why, architecture, security, operations, status |
 | `docs/FIRST_ADMIN_BACKUP_RESTORE_GUIDE.md` | starting the server, creating the first admin, backup, restore, off-site copies |
 | `docs/FEATURES.md` | every feature, where it is, who may use it |

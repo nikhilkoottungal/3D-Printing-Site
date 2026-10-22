@@ -1,4 +1,5 @@
-<div class="top"><h2 style="margin:0">Admin settings</h2></div>
+<?php if (can('team.manage')) { require __DIR__ . '/admin_tabs.php'; } ?>
+<div class="top"><h2 style="margin:0"><?= e($pageTitle ?? 'Admin settings') ?></h2></div>
 <div class="card narrow">
 <?php if ($hasKey): ?>
 <h3>Enter the admin key</h3><p class="muted">Business settings are protected by your personal admin key, in addition to your login.</p>

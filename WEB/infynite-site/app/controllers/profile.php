@@ -79,9 +79,9 @@ function hr_doc_delete(string $id): void
 /** Owner's read-only view of a colleague's details. */
 function team_profile(string $id): void
 {
-    $u = require_staff('team.manage'); $p = one("SELECT id,name,email,phone,role,active FROM is_users WHERE id=? AND role<>'customer'", [(int) $id]); if (!$p) { abort(404); }
+    $u = require_staff('team.manage'); admin_unlocked(); $p = one("SELECT id,name,email,phone,role,active FROM is_users WHERE id=? AND role<>'customer'", [(int) $id]); if (!$p) { abort(404); }
     audit('hr.view', $p['email']);
-    render('staff/team_profile', ['title' => $p['name'], 'nav' => 'team', 'p' => $p, 'pr' => hr_profile((int) $p['id']), 'docs' => hr_docs((int) $p['id']), 'u' => $u], 'staff');
+    render('staff/team_profile', ['title' => $p['name'], 'nav' => 'admin', 'atab' => 'team', 'p' => $p, 'pr' => hr_profile((int) $p['id']), 'docs' => hr_docs((int) $p['id']), 'u' => $u], 'staff');
 }
 
 /* ---------------- profile picture ---------------- */

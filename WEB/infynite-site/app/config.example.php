@@ -8,9 +8,24 @@ return [
     'debug'       => false,
     'setup_token' => 'CHANGE_ME_TO_A_LONG_RANDOM_STRING', // needed once, at /setup, to create the owner
 
-    'db' => ['host' => 'localhost', 'port' => 3306, 'name' => '', 'user' => '', 'pass' => ''],
+    // Fill these values only in the local, ignored app/config.php. Never commit database passwords.
+    'db' => [
+        'host' => 'localhost',
+        'port' => 3306,
+        'name' => 'infynite_portal',
+        'user' => 'infynite',
+        // 'pass' => 'PUT_DATABASE_PASSWORD_HERE',
+        'pass' => '',
+    ],
 
-    'mail' => ['from' => 'no-reply@infynitesolutions.in', 'from_name' => 'Infynite Solutions', 'log_only' => false],
+    'mail' => [
+        'from' => 'no-reply@infynitesolutions.in',
+        'from_name' => 'Infynite Solutions',
+        'log_only' => false,
+        // SMTP username/password belong only in the ignored app/config.php or encrypted Admin settings.
+        // 'smtp_user' => '...',
+        // 'smtp_pass' => '...',
+    ],
 
     'storage' => APP_ROOT . '/storage',   // uploads + logs; MUST be outside the public document root
 
@@ -25,7 +40,7 @@ return [
 
     // Backups: see docs/BACKUP_RESTORE_PLAN.md. Only PUBLIC keys go here (generate keys with tools/keygen.php on an owner's PC).
     'backup' => [
-        'recipients'   => [],   // e.g. ['<owner1 public key>', '<owner2 public key>']  - BOTH owners
+        'recipients'   => [],   // e.g. ['<owner1 public key>', '<owner2 public key>']  - public keys only
         'destinations' => [],   // e.g. [['type' => 'folder', 'path' => '/path/to/offsite-folder']]  (Google Drive adapter: later)
         'notify_cmd'   => null, // optional command that receives the message as its single argument
         // optional overrides: dir, chunk_mb (500), keep_local (3), databases[] (add Dolibarr), paths[] (add Dolibarr documents),

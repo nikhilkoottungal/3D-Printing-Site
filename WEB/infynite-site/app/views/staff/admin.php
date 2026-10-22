@@ -1,15 +1,16 @@
-<div class="top"><div><h2 style="margin:0">Admin settings</h2><span class="muted">Unlocked; locks after 15 minutes without activity.</span></div>
+<?php if (can('team.manage')) { require __DIR__ . '/admin_tabs.php'; } ?>
+<div class="top"><div><h2 style="margin:0">Admin settings</h2><span class="muted">Unlocked; locks after 30 seconds without activity, or as soon as you switch to another browser tab.</span></div>
 <form method="post" action="/staff/admin/lock" class="inline"><?= csrf_field() ?><button class="btn alt">Lock now</button></form></div>
 <form method="post" action="/staff/admin/save"><?= csrf_field() ?>
 <?php foreach (SETTING_GROUPS as $group => $fields): ?>
-<div class="card mb"><h3><?= e($group) ?></h3>
+<div class="card mb settings"><h3><?= e($group) ?></h3><div class="setgrid">
 <?php foreach ($fields as $k => $def): [$label, $type, $max] = $def; $v = $vals[$k] ?? ($k === 'app_name' ? cfg('app_name') : ($k === 'mail_mode' ? 'log' : ($k === 'smtp_port' ? '587' : ($k === 'smtp_enc' ? 'tls' : '')))); ?>
-<label for="s_<?= e($k) ?>"><?= e($label) ?></label>
-<?php if ($type === 'textarea'): ?><textarea id="s_<?= e($k) ?>" name="<?= e($k) ?>" rows="3" maxlength="<?= (int) $max ?>"><?= e($v) ?></textarea>
+<div class="sf<?= $type === 'textarea' ? ' wide' : '' ?>"><label for="s_<?= e($k) ?>"><?= e($label) ?></label>
+<?php if ($type === 'textarea'): ?><textarea id="s_<?= e($k) ?>" name="<?= e($k) ?>" rows="2" maxlength="<?= (int) $max ?>"><?= e($v) ?></textarea>
 <?php elseif ($type === 'select'): ?><select id="s_<?= e($k) ?>" name="<?= e($k) ?>"><?= options($def[3], $v) ?></select>
 <?php elseif ($type === 'secret'): ?><input id="s_<?= e($k) ?>" name="<?= e($k) ?>" type="password" autocomplete="new-password" maxlength="<?= (int) $max ?>" placeholder="<?= !empty($vals[$k]) ? '(saved; leave blank to keep)' : '' ?>">
 <?php else: ?><input id="s_<?= e($k) ?>" name="<?= e($k) ?>" maxlength="<?= (int) $max ?>" value="<?= e($v) ?>"><?php endif; ?>
-<?php endforeach; ?></div>
+</div><?php endforeach; ?></div></div>
 <?php endforeach; ?>
 <button class="btn">Save settings</button></form>
 <div class="card mt"><h3>Send a test e-mail</h3><p class="muted">Save the e-mail settings first, then send a test to check they work.</p>

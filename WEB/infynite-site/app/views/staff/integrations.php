@@ -1,3 +1,4 @@
+<?php if (can('team.manage')) { require __DIR__ . '/admin_tabs.php'; } ?>
 <div class="top"><div><h2 style="margin:0">Integrations and off-site copies</h2><span class="muted"><a href="/staff/admin">&larr; Admin settings</a> &middot; Where copies of your data are sent, and what is sent.</span></div></div>
 <?php if (!$rclone): ?><div class="errs">rclone is not installed on the server, so Google Drive and FTP copies cannot run. Install it (for example <code>sudo apt install rclone</code>) and reload.</div><?php endif; ?>
 <div class="grid g2" style="align-items:start">

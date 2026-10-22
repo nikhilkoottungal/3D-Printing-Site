@@ -7,4 +7,6 @@ storage/maintenance.flag
 *.key
 API_KEY.txt
 ADMIN_LOGIN.txt
+server-local.out.log
+server-local.err.log
 !storage/.htaccess

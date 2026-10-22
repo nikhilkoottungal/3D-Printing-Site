@@ -32,7 +32,7 @@ function isbk_mkdir(string $d): void { if (!is_dir($d) && !@mkdir($d, 0750, true
 function isbk_config(?string $file = null): array
 {
     if (!defined('APP_ROOT')) { define('APP_ROOT', dirname(__DIR__, 2)); }
-    $file = $file ?: APP_ROOT . '/app/config.php';
+    $file = $file ?: (getenv('INFYNITE_CONFIG') ?: APP_ROOT . '/app/config.php');
     if (!is_file($file)) { isbk_fail("config not found: $file"); }
     $cfg = require $file;
     $b = $cfg['backup'] ?? [];

@@ -2,15 +2,30 @@
 /** Admin settings > Integrations: Google Drive (rclone), FTP/SFTP, what is copied where, test buttons, run now. Owner + admin key. */
 function integ_guard(): array
 {
-    $u = require_staff('team.manage');
-    if (!admin_key_hash() || !admin_unlocked()) { redirect('/staff/admin'); }
-    return $u;
+    return admin_guard('settings', 'Integrations');
+}
+/** Validates and stores the FTP/FTPS/SFTP connection fields from $_POST (shared by Integrations and Backups). $enabled null = leave "Enabled" as it is. Returns the list of errors. */
+function ftp_settings_save(?string $enabled): array
+{
+    $errors = [];
+    $f = fn($k, $m = 190) => mb_substr(trim((string) ($_POST[$k] ?? '')), 0, $m);
+    $proto = $f('ftp_proto', 5); $host = $f('ftp_host', 120); $port = $f('ftp_port', 5); $path = trim($f('ftp_path', 190), '/');
+    if (!in_array($proto, ['ftp', 'ftps', 'sftp'], true)) { $errors[] = 'Choose a protocol.'; }
+    if ($host !== '' && !preg_match('/^[A-Za-z0-9.\-]{1,120}$/', $host)) { $errors[] = 'Server name is not valid.'; }
+    if ($port !== '' && !(ctype_digit($port) && $port >= 1 && $port <= 65535)) { $errors[] = 'Port must be 1-65535.'; }
+    if (!preg_match('~^[A-Za-z0-9 _./-]{0,190}$~', $path) || str_contains($path, '..')) { $errors[] = 'Folder path may only use letters, digits, spaces and _ . / -'; }
+    if ($errors) { return $errors; }
+    $vals = ['ftp_proto' => $proto, 'ftp_host' => $host, 'ftp_port' => $port, 'ftp_user' => $f('ftp_user'), 'ftp_path' => $path];
+    if ($enabled !== null) { $vals['ftp_enabled'] = $enabled; }
+    foreach ($vals as $k => $v) { setting_set($k, $v === '' ? null : $v); }
+    if (($pw = (string) ($_POST['ftp_pass'] ?? '')) !== '') { setting_set('ftp_pass', secret_encrypt($pw)); }
+    return [];
 }
 function integ_page(): void
 {
     $u = integ_guard();
     $last = json_decode((string) setting('offsite_last', ''), true) ?: null;
-    render('staff/integrations', ['title' => 'Integrations', 'nav' => 'admin', 'u' => $u, 'remotes' => rclone_remotes(), 'rclone' => rclone_bin(), 'last' => $last], 'staff');
+    render('staff/integrations', ['title' => 'Integrations', 'nav' => 'admin', 'atab' => 'settings', 'u' => $u, 'remotes' => rclone_remotes(), 'rclone' => rclone_bin(), 'last' => $last], 'staff');
 }
 function integ_save(): void
 {
@@ -24,15 +39,7 @@ function integ_save(): void
         if (!preg_match('/^[A-Za-z0-9_-]{0,80}$/', $root)) { $errors[] = 'Root folder ID is not valid.'; }
         if (!$errors) { foreach (['drive_enabled' => !empty($_POST['drive_enabled']) ? '1' : '0', 'drive_remote' => $remote, 'drive_path' => $path, 'drive_root' => $root] as $k => $v) { setting_set($k, $v === '' ? null : $v); } }
     } elseif ($part === 'ftp') {
-        $proto = $f('ftp_proto', 5); $host = $f('ftp_host', 120); $port = $f('ftp_port', 5); $path = trim($f('ftp_path', 190), '/');
-        if (!in_array($proto, ['ftp', 'ftps', 'sftp'], true)) { $errors[] = 'Choose a protocol.'; }
-        if ($host !== '' && !preg_match('/^[A-Za-z0-9.\-]{1,120}$/', $host)) { $errors[] = 'Server name is not valid.'; }
-        if ($port !== '' && !(ctype_digit($port) && $port >= 1 && $port <= 65535)) { $errors[] = 'Port must be 1-65535.'; }
-        if (!preg_match('~^[A-Za-z0-9 _./-]{0,190}$~', $path) || str_contains($path, '..')) { $errors[] = 'Folder path may only use letters, digits, spaces and _ . / -'; }
-        if (!$errors) {
-            foreach (['ftp_enabled' => !empty($_POST['ftp_enabled']) ? '1' : '0', 'ftp_proto' => $proto, 'ftp_host' => $host, 'ftp_port' => $port, 'ftp_user' => $f('ftp_user'), 'ftp_path' => $path] as $k => $v) { setting_set($k, $v === '' ? null : $v); }
-            if (($pw = (string) ($_POST['ftp_pass'] ?? '')) !== '') { setting_set('ftp_pass', secret_encrypt($pw)); }
-        }
+        $errors = ftp_settings_save(!empty($_POST['ftp_enabled']) ? '1' : '0');
     } elseif ($part === 'matrix') {
         foreach (array_keys(OFFSITE_DATASETS) as $ds) { foreach (array_keys(OFFSITE_DESTS) as $d) { setting_set("off_{$ds}_{$d}", !empty($_POST['m'][$ds][$d]) ? '1' : '0'); } }
     } else { abort(400); }

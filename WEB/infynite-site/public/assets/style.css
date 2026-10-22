@@ -178,3 +178,30 @@ details.card>summary.pwsum{cursor:pointer;font-weight:700;font-size:1.05rem;list
 details.card>summary.pwsum::-webkit-details-marker{display:none}
 details.card>summary.pwsum::before{content:'\25B8  ';color:var(--muted)}
 details.card[open]>summary.pwsum::before{content:'\25BE  '}
+
+.spinner{display:inline-block;width:1.1em;height:1.1em;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;vertical-align:-.2em;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
+
+.side .sidesep{border-top:1px solid var(--line);margin:14px 8px 8px}
+.side .sidebox{border:1px solid var(--line);border-radius:12px;padding:4px;margin:0 0 10px;background:var(--surface)}
+
+/* compact sidebar: everything fits without scrolling on normal laptop screens; tighter still on short ones */
+.side{padding:10px 10px 8px}
+.side .logo{padding:0 6px 8px;font-size:1.05rem}
+.side .sidesearch{padding:0 2px 8px}
+.side a{padding:5px 10px;font-size:.88rem;line-height:1.3}
+.side .sidebox{margin:0 0 6px;padding:2px;border-radius:10px}
+.side .sidesep{margin:8px 4px 4px}
+.side .btn.link{padding:5px 10px;font-size:.88rem;line-height:1.3}
+.side .userbar{margin-top:6px;padding:8px 6px 4px;font-size:.8rem;line-height:1.25}
+@media(max-height:800px){.side a,.side .btn.link{padding:3px 10px;font-size:.85rem}.side .sidebox{margin-bottom:5px}.side .logo{padding-bottom:5px}.side .sidesearch{padding-bottom:5px}.side .sidesep{margin:6px 4px 3px}.side .userbar{margin-top:4px;padding-top:6px}}
+@media(max-height:680px){.side a,.side .btn.link{padding:2px 10px;font-size:.82rem;line-height:1.25}.side .sidebox{margin-bottom:4px}.side .userbar{display:none}}
+
+/* Admin settings > Settings: compact fields in two columns instead of one tall stack */
+.settings .setgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px}
+.settings .sf.wide{grid-column:1/-1}
+.settings label{font-size:.8rem;margin-bottom:3px}
+.settings input,.settings select,.settings textarea{padding:6px 10px;font-size:.9rem;margin-bottom:10px}
+.settings h3{margin-bottom:10px}
+@media(max-width:900px){.settings .setgrid{grid-template-columns:1fr}}

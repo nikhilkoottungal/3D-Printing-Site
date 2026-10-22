@@ -78,3 +78,13 @@ If both apps share one database the tool dumps it only once. Results: portal (12
 - DB dump is a logical dump of base tables (no views/triggers/routines/events; none are used by the portal; Dolibarr uses few – check at Phase 2). Generated columns are not handled.
 - Memory: files are streamed in 1 MB chunks, DB rows in batches of 200; part size configurable (`chunk_mb`, default 500 MB).
 - Windows: untested but uses only portable PHP (paths normalised, no shell calls except optional `stty`/notify).
+
+## Backups page: location, schedule, FTP, restore from FTP (2026-10-22)
+- **Admin only:** `/staff/backups`, Integrations, Notifications, Admin settings and the Data export all use `admin_guard()` (Owner role + the admin's personal key unlocked); anyone else gets 403 or the lock screen.
+- **Location:** Local (default) keeps the encrypted backup on this server; FTP also uploads it to the FTP server after each backup (`<folder>/backups`). The FTP connection (protocol, address, port, user, password, folder) is the same one as Admin settings > Integrations; the password is stored encrypted.
+- **Schedule:** daily at a time, weekly on a weekday, every 1-12 hours, or never. `deploy/infynite-backup.timer` wakes `tools/backup_scheduled.php` every 15 minutes; it runs `tools/backup.php` only when `backup_due()` (app/lib/backup_schedule.php) says so, then uploads to FTP if chosen. `php tools/backup_scheduled.php --force` runs now.
+- **Restore from FTP:** `php tools/restore.php list --ftp`, `verify|restore --ftp --key=FILE [--run=ID]` (newest run if `--run` is omitted). The tool downloads that run's core and parts to a temp folder, then restores exactly as from a local folder. The Backups page lists what is on the FTP server ("Show backups on the FTP server").
+- Tests: `php tools/smoke_test.php` section "backups page" (schedule maths, guards, a real scheduled backup, upload and `restore.php --ftp verify`, using `rclone serve sftp` as the test server).
+
+## Admin settings is one area with tabs (2026-10-22)
+The owner's sidebar has a single **Admin settings** entry. Inside it, tabs (`app/views/staff/admin_tabs.php`): Settings, Team & roles, Backups. Integrations and Notifications are reached from cards on the Settings tab; Data export from Reports. One admin-key entry covers the whole area (the Team tab keeps the same unlock alive). Non-owner staff keep a plain read-only "Team & roles" item and see no admin tabs. Backups, Integrations, Notifications, Settings and Data export need the admin key; the Team page itself is owner-only (its actions are owner-only POSTs) but does not ask for the admin key.
