@@ -2,15 +2,15 @@
 const ROLES = ['owner' => 'Owner', 'sales' => 'Sales', 'production' => 'Production', 'purchasing' => 'Purchasing'];
 const ROLE_DESC = [
     'owner'      => 'Full access: team, roles, every order, task and procedure.',
-    'sales'      => 'Reviews enquiries, prices and sends quotations, handles customers.',
+    'sales'      => 'Reviews enquiries, prices and sends quotations, issues invoices, handles customers.',
     'production' => 'Schedules and runs print jobs, quality check, dispatch.',
-    'purchasing' => 'Manages inventory and reordering; supplier purchase orders in Dolibarr; reads orders.',
+    'purchasing' => 'Manages inventory, suppliers and purchase orders; reads orders.',
 ];
 const ROLE_PERMS = [
     'owner'      => ['*'],
-    'sales'      => ['requests.view', 'requests.quote', 'requests.create'],
-    'production' => ['requests.view', 'requests.production', 'requests.create', 'stock.use'],
-    'purchasing' => ['requests.view', 'stock.manage', 'stock.use'],
+    'sales'      => ['requests.view', 'requests.quote', 'requests.create', 'invoices.manage', 'customers.manage', 'reports.view'],
+    'production' => ['requests.view', 'requests.production', 'requests.create', 'stock.use', 'printers.manage'],
+    'purchasing' => ['requests.view', 'stock.manage', 'stock.use', 'purchasing.manage'],
 ];
 
 const STATUSES = [
@@ -77,19 +77,29 @@ function fmt_bytes(int $b): string
 }
 function money($v): string { return $v === null || $v === '' ? '—' : '₹' . number_format((float) $v, 2); }
 
-function redirect(string $to): void
+/** URL prefix when the site is mounted in a subfolder (e.g. /portal). '' at a domain root. Override with config 'base_path'. */
+function base_path(): string
 {
-    // Keep application redirects inside the configured mount point when hosted
-    // from a subfolder (for example, /infynite-test).
-    if (str_starts_with($to, '/') && !str_starts_with($to, '//')) {
-        $mountPath = rtrim((string) parse_url((string) cfg('base_url'), PHP_URL_PATH), '/');
-        if ($mountPath !== '' && $to !== $mountPath && !str_starts_with($to, $mountPath . '/')) {
-            $to = $mountPath . $to;
+    static $bp = null;
+    if ($bp === null) {
+        $c = cfg('base_path');
+        if ($c === null && PHP_SAPI !== 'cli-server') {
+            $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+            $c = $dir === '/' || $dir === '.' ? '' : $dir;
         }
+        $c = $c ?? '';
+        $bp = rtrim((string) $c, '/');
     }
-    header('Location: ' . $to);
-    exit;
+    return $bp;
 }
+/** Root-relative app path -> URL including the base path. External and already-prefixed URLs are left alone. */
+function url_for(string $to): string
+{
+    $bp = base_path();
+    if ($bp === '' || $to === '' || $to[0] !== '/' || str_starts_with($to, '//') || $to === $bp || str_starts_with($to, $bp . '/')) { return $to; }
+    return $bp . $to;
+}
+function redirect(string $to): void { header('Location: ' . url_for($to)); exit; }
 function flash(string $msg, string $type = 'ok'): void { $_SESSION['flash'][] = [$type, $msg]; }
 function take_flashes(): array { $f = $_SESSION['flash'] ?? []; unset($_SESSION['flash']); return $f; }
 
@@ -123,7 +133,7 @@ function abort(int $code, string $msg = ''): void
 {
     http_response_code($code);
     $title = $code === 404 ? 'Not found' : ($code === 403 ? 'Not allowed' : 'Error');
-    render('error', ['code' => $code, 'msg' => $msg ?: $title, 'title' => $title], is_staff() ? 'staff' : (user() ? 'app' : 'site'));
+    render('error', ['code' => $code, 'msg' => $msg ?: $title, 'title' => $title], is_staff() ? 'staff' : 'site');
     exit;
 }
 

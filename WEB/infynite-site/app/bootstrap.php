@@ -8,10 +8,10 @@ if (!is_file($__cfgFile)) {
 }
 $GLOBALS['CFG'] = require $__cfgFile;
 
-foreach (['core', 'auth', 'markdown', 'mail', 'upload', 'dolibarr', 'seed'] as $f) {
+foreach (['core', 'auth', 'markdown', 'mail', 'upload', 'seed', 'settings', 'secret', 'pdf', 'offsite', 'smtp', 'notify', 'totp', 'qr', 'session_rules', 'validate', 'migrate'] as $f) {
     require APP_ROOT . '/app/lib/' . $f . '.php';
 }
-foreach (['site', 'auth', 'customer', 'staff', 'requests', 'tasks', 'kb', 'team', 'inventory', 'backups'] as $f) {
+foreach (['site', 'auth', 'orders_common', 'staff', 'requests', 'tasks', 'kb', 'team', 'inventory', 'backups', 'admin', 'integrations', 'invoices', 'account', 'profile', 'production', 'search', 'workspace', 'customers', 'purchasing', 'billing', 'reports'] as $f) {
     require APP_ROOT . '/app/controllers/' . $f . '.php';
 }
 
@@ -21,7 +21,12 @@ ini_set('error_log', cfg('storage') . '/logs/php-error.log');
 
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 if (cfg('force_https') && !$https) {
-    redirect(rtrim(cfg('base_url'), '/') . ($_SERVER['REQUEST_URI'] ?? '/'));
+    // base_url may already include the subfolder; avoid doubling it.
+    $origin = rtrim(cfg('base_url'), '/');
+    $bp = base_path();
+    if ($bp !== '' && str_ends_with($origin, $bp)) { $origin = substr($origin, 0, -strlen($bp)); }
+    header('Location: ' . $origin . ($_SERVER['REQUEST_URI'] ?? '/'));
+    exit;
 }
 
 header('X-Content-Type-Options: nosniff');
@@ -32,6 +37,7 @@ if ($https) {
     header('Strict-Transport-Security: max-age=31536000');
 }
 
-session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
+session_set_cookie_params(['lifetime' => 0, 'path' => base_path() ?: '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
 session_name('isid');
+migrate();
 session_start();

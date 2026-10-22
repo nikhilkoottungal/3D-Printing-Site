@@ -16,21 +16,14 @@ if (PHP_SAPI !== 'cli' && is_file($storageRoot . '/maintenance.flag')) {
 }
 require $appRoot . '/app/bootstrap.php';
 
-// Rewrite root-relative app links/assets/forms when the app is mounted in a subfolder.
-$mountPath = rtrim((string) parse_url((string) cfg('base_url'), PHP_URL_PATH), '/');
-if ($mountPath !== '') {
-    ob_start(static function (string $html) use ($mountPath): string {
-        return preg_replace_callback(
-            '/\b(href|src|action)=(\"|\')\/(?!\/)([^\"\']*)\2/i',
-            static function (array $m) use ($mountPath): string {
-                $path = '/' . ltrim($m[3], '/');
-                if ($path === $mountPath || str_starts_with($path, $mountPath . '/')) {
-                    return $m[0];
-                }
-                return $m[1] . '=' . $m[2] . $mountPath . $path . $m[2];
-            },
-            $html
-        );
+// Subfolder mount: prefix root-relative links/forms/assets with the base path.
+if (base_path() !== '' && PHP_SAPI !== 'cli') {
+    $bp = base_path();
+    ob_start(function (string $html) use ($bp): string {
+        return preg_replace_callback('~\b(href|src|action)="/(?!/)([^"]*)"~', function ($m) use ($bp) {
+            $p = '/' . $m[2];
+            return ($p === $bp || str_starts_with($p, $bp . '/')) ? $m[0] : $m[1] . '="' . $bp . $p . '"';
+        }, $html);
     });
 }
 

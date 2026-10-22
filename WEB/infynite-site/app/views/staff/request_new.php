@@ -7,7 +7,7 @@
     <p class="muted" style="font-size:.85rem">Or fill in a new customer (ignored if one is selected above):</p>
     <label>Name</label><input name="c_name" maxlength="120" value="<?= e($old['c_name'] ?? '') ?>">
     <div class="row"><div><label>Phone</label><input name="c_phone" maxlength="30" value="<?= e($old['c_phone'] ?? '') ?>"></div><div><label>Email (optional)</label><input name="c_email" type="email" maxlength="190" value="<?= e($old['c_email'] ?? '') ?>"></div></div>
-    <div class="note">New customers get a record but cannot log in. If they give an email, they can claim the account later with "Forgot password".</div>
+    <div class="note">New customers get a record only. Customers never log in; staff enter and update everything.</div>
     <h3 class="mt">Model files (optional)</h3>
     <input type="file" name="files[]" multiple accept=".stl,.3mf" data-list="filelist"><p class="muted" id="filelist" style="font-size:.85rem"></p></div>
   <div class="card"><h3>2 · Order</h3>

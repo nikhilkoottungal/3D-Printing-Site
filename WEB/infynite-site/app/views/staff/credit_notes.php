@@ -1,0 +1,4 @@
+<div class="top"><div><h2 style="margin:0">Credit notes</h2><span class="muted"><a href="/staff/invoices">&larr; Invoices</a> &middot; Create one from an invoice page.</span></div></div>
+<div class="card"><div class="tw"><table><tr><th>Number</th><th>Date</th><th>Invoice</th><th>Customer</th><th>Reason</th><th class="right">Total</th></tr>
+<?php foreach ($rows as $c): ?><tr><td><a href="/staff/credit-notes/<?= (int) $c['id'] ?>"><?= e($c['number']) ?></a></td><td><?= e(fmt_date($c['issue_date'])) ?></td><td><a href="/staff/invoices/<?= (int) $c['invoice_id'] ?>"><?= e($c['inumber']) ?></a></td><td><?= e($c['bill_name']) ?></td><td><?= e($c['reason']) ?></td><td class="right"><?= e(money($c['total'])) ?></td></tr>
+<?php endforeach; if (!$rows): ?><tr><td colspan="6" class="muted">No credit notes.</td></tr><?php endif; ?></table></div></div>

@@ -25,12 +25,11 @@ function require_login(): array
 {
     $u = user();
     if (!$u) {
-        $_SESSION['after_login'] = $_SERVER['REQUEST_URI'] ?? '/account';
+        $_SESSION['after_login'] = $_SERVER['REQUEST_URI'] ?? '/staff';
         redirect('/login');
     }
     return $u;
 }
-function require_customer(): array { $u = require_login(); if (is_staff($u)) { redirect('/staff'); } return $u; }
 function require_staff(?string $perm = null): array
 {
     $u = require_login();
@@ -56,7 +55,7 @@ function make_token(int $userId, string $kind, int $hours): string
 function user_by_token(string $raw, string $kind): ?array
 {
     if (!preg_match('/^[a-f0-9]{64}$/', $raw)) { return null; }
-    return one('SELECT * FROM is_users WHERE token_hash=? AND token_kind=? AND token_expires>? AND active=1', [hash('sha256', $raw), $kind, now()]);
+    return one('SELECT * FROM is_users WHERE token_hash=? AND token_kind=? AND token_expires>? AND active=1 AND role <> \'customer\'', [hash('sha256', $raw), $kind, now()]);
 }
 function clear_token(int $userId): void { q('UPDATE is_users SET token_hash=NULL, token_kind=NULL, token_expires=NULL WHERE id=?', [$userId]); }
 
@@ -66,11 +65,6 @@ function login_user(array $u): void
     $_SESSION['uid'] = (int) $u['id'];
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
     q('UPDATE is_users SET last_login_at=? WHERE id=?', [now(), $u['id']]);
-}
-function send_verify_mail(array $u): void
-{
-    $t = make_token((int) $u['id'], 'verify', 48);
-    send_mail($u['email'], 'Verify your email', "Hi {$u['name']},\n\nConfirm your email address to activate your account:\n" . cfg('base_url') . "/verify?token=$t\n\nThis link expires in 48 hours. If you did not register, ignore this message.");
 }
 function send_reset_mail(array $u): string
 {

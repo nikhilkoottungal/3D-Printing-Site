@@ -1,2 +1,2 @@
-<?php foreach (take_flashes() as [$ft, $fm]): ?><div class="flash <?= e($ft) ?>" role="status"><?= e($fm) ?></div><?php endforeach; ?>
+<?php $__fl = take_flashes(); if ($__fl): ?><div class="toasts" aria-live="polite"><?php foreach ($__fl as [$ft, $fm]): ?><div class="flash <?= e($ft) ?>" role="status"><span><?= e($fm) ?></span><button type="button" class="flash-x" aria-label="Dismiss">&times;</button></div><?php endforeach; ?></div><?php endif; ?>
 <?php if (!empty($errors)): ?><div class="errs" role="alert"><ul><?php foreach ($errors as $er): ?><li><?= e($er) ?></li><?php endforeach; ?></ul></div><?php endif; ?>

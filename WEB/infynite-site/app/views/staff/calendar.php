@@ -1,0 +1,8 @@
+<?php $ts = strtotime($first); $dim = (int) date('t', $ts); $lead = (int) date('N', $ts) - 1; $prev = date('Y-m', strtotime("$first -1 month")); $next = date('Y-m', strtotime("$first +1 month")); $today = date('Y-m-d'); $qs = fn($mm) => '/staff/calendar?m=' . $mm . ($mine ? '&mine=1' : ''); ?>
+<div class="top"><div><h2 style="margin:0">Calendar</h2><span class="muted">Due dates, deliveries, print jobs, payments and printer maintenance you are allowed to see.</span></div>
+<form class="filters" method="get" style="margin:0"><a class="btn alt sm" href="<?= e($qs($prev)) ?>">&larr;</a><input type="month" name="m" value="<?= e($m) ?>" aria-label="Month"><a class="btn alt sm" href="<?= e($qs($next)) ?>">&rarr;</a><label style="font-weight:400;margin:0"><input type="checkbox" name="mine" value="1" style="width:auto;margin:0 4px 0 0" <?= $mine ? 'checked' : '' ?>>My tasks only</label><button class="btn alt sm">Show</button></form></div>
+<h3><?= e(date('F Y', $ts)) ?></h3>
+<div class="cal"><?php foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $dn): ?><div class="cal-h"><?= $dn ?></div><?php endforeach; ?>
+<?php for ($i = 0; $i < $lead; $i++): ?><div class="cal-d off"></div><?php endfor; ?>
+<?php for ($d = 1; $d <= $dim; $d++): $dt = sprintf('%s-%02d', $m, $d); $items = $ev[$dt] ?? []; ?><div class="cal-d <?= $dt === $today ? 'today' : '' ?>"><b><?= $d ?></b>
+<?php foreach (array_slice($items, 0, 4) as [$cls, $label, $href]): ?><a class="pill <?= e($cls) ?>" href="<?= e($href) ?>" title="<?= e($label) ?>"><?= e($label) ?></a><?php endforeach; if (count($items) > 4): ?><span class="muted" style="font-size:.75rem">+<?= count($items) - 4 ?> more</span><?php endif; ?></div><?php endfor; ?></div>

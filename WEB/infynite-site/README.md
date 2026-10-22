@@ -1,51 +1,27 @@
-# Infynite Solutions – portal + staff workspace
+# Infynite Solutions internal server
 
-**AI agents / new developers: start with `AGENTS.md` and `docs/HANDOVER.md`**; Windows: `docs/WINDOWS_SETUP.md`; hosting check: `docs/PHASE0_HOSTING_CHECKLIST.md` (full description, rules, Windows + Linux setup, status, roadmap).
+A staff-only business system for a 3D printing company: orders, production, stock, purchasing, billing and GST, tasks, notes, knowledge base, people. Plain PHP 8.3 + MariaDB, no framework. It runs on an office machine and is reachable **only on the office network**. There is no public site and no customer login.
 
-Plain PHP 8 + MySQL, no framework, no Composer, no background processes (fits shared hosting).
-**Status (2026-10-21):** runs and passes 62 end-to-end checks on Windows (PHP 8.5.11, MariaDB 13.0.2) and Linux. The backup/restore suite passes 21 executed checks with 0 failures on Windows (one Linux-specific read-only-folder check is skipped). Windows local setup is verified; **not yet deployed** – the Hostinger Phase 0 check is the next milestone.
+**Open it:** `http://<server LAN IP>:8080` (run `./deploy/server.sh url`).
+**Start / stop / check:** `./deploy/server.sh start|stop|restart|status|logs|timers`.
+**Tests:** `php tools/smoke_test.php` (331 end-to-end checks) and `php tools/test_roundtrip.php` (22 backup/restore checks).
 
-## What is in it
-- **Public site:** home, services, materials, gallery, contact, privacy, terms (drafts, need professional review).
-- **Customers:** register, e-mail verification, login, reset, dashboard, STL/3MF upload (validated), quote request, approve/cancel quote, order tracking, data export, deletion request.
-- **Staff workspace** (`/staff`): orders (incl. direct/walk-in orders), inventory, backups status, team & roles, plus:
-  - **Tasks:** title, description (Markdown, checklists), status, priority, assignee, due date, group/phase, comments, automatic activity log, list + board views, filters.
-  - **Knowledge & procedures:** versioned articles, search, review-by dates, history/restore, and **"Create task from procedure"** (copies the checklist into a task).
-  - **Team & roles:** Owner / Sales / Production / Purchasing; owner adds people, changes roles, deactivates.
-  - **Customer requests:** quote, status changes (permission per role), file download, optional Dolibarr sync.
-- First setup seeds 10 procedures and 10 implementation tasks taken from the brief.
-
-## Dolibarr decision
-
-Dolibarr is **not required** for the current portal: customer accounts, quote/order workflow, staff tasks and procedures, team roles, and basic inventory are handled here. The portal can operate without an ERP install. Dolibarr remains an optional future integration if the business needs more complete ERP functions such as supplier purchasing, accounting/invoicing, or warehouse management. Those functions are not all provided by the portal's current basic inventory and order workflow. The Hostinger test `/erp` directory was removed before Dolibarr was installed there; the existing portal and its database remain separate and unchanged by that decision.
-
-**Current hosting constraint:** Hostinger supports PHP websites and scheduled PHP cron jobs. This portal runs as ordinary PHP web requests; it does not require a continuously running PHP daemon/background worker. Keep scheduled work within the hosting plan's resource and cron-job limits.
-
-**Extension note:** the Sodium extension is currently missing from the Hostinger PHP setup (per the hosting check). This blocks the portal's encrypted backup/restore toolkit, which uses Sodium for key handling and encryption; it does **not** block Dolibarr core operation. Enable Sodium before relying on the portal's encrypted backups.
+## Read next
+| Document | For |
+|---|---|
+| `docs/SYSTEM_WRITEUP.md` | what was built, why, architecture, security, operations, status |
+| `docs/FIRST_ADMIN_BACKUP_RESTORE_GUIDE.md` | starting the server, creating the first admin, backup, restore, off-site copies |
+| `docs/FEATURES.md` | every feature, where it is, who may use it |
+| `docs/AI_AGENT_GUIDE.md` | rules, code map and pitfalls for an AI agent or developer |
+| `docs/ROADMAP.md`, `docs/LOCAL_HOSTING.md` | the Owner's decisions and requirements |
+| `docs/BACKUP_OPERATIONS.md`, `docs/BACKUP_RESTORE_PLAN.md` | backup toolkit design and commands |
+| `docs/archive/` | superseded Hostinger, Dolibarr and Windows material |
 
 ## Layout
-`public/` is the only web-visible folder. `app/`, `sql/`, `storage/` must sit **above** it.
+`public/` (web-visible), `app/` (code, views, `config.php` secret), `sql/schema.sql`, `storage/` (private data), `tools/`, `deploy/` (systemd units, `server.sh`), `docs/`.
 
-## Deploy / first run
-1. Check syntax: `find app public -name '*.php' -exec php -l {} \;`
-2. Create the MySQL database; import `sql/schema.sql`.
-3. `cp app/config.example.php app/config.php`; fill DB, `base_url`, a long random `setup_token`.
-4. Upload so that `public/` content is the document root and `app/`, `storage/` are outside it (adjust the `require` in `public/index.php` if needed). `storage/` must be writable by PHP.
-5. Open `/setup` once, create the Owner. The page then disappears. Change `setup_token`.
-6. Log in, go to **Team**, add the other three staff.
-7. Local test without HTTPS: set `force_https` false and `mail.log_only` true (links go to `storage/logs/mail.log`).
-
-## Roles
-| Role | Requests | Quote | Production status | Team admin |
-|---|---|---|---|---|
-| Owner | ✔ | ✔ | ✔ | ✔ |
-| Sales | ✔ | ✔ | – | – |
-| Production | ✔ | – | ✔ | – |
-| Purchasing | view | – | – | – |
-
-All staff: read/edit procedures, see all tasks, comment, create tasks. Edit a task: assignee, creator or owner. Suppliers/POs/stock live in Dolibarr.
-
-## Known limits / to verify (Phase 0)
-- Upload size, DB count, cron, mail delivery and private folder above web root are **unverified** on Hostinger.
-- Dolibarr client (`app/lib/dolibarr.php`) is untested; check payloads against your version. Staff UI is this portal, not Dolibarr's task module (decision to confirm).
-- No MFA for staff yet (brief asks for it if supported). Automated smoke and backup/restore checks are available under `tools/`.
+## First run on a new machine
+1. PHP 8.2+ with `sodium zip pdo_mysql mbstring curl gd`, MariaDB, rclone (optional, for Drive/FTP copies).
+2. Create a database and user; copy `app/config.example.php` to `app/config.php` and fill in the database login, `base_url` and a long random `setup_token`.
+3. `./deploy/install-lan.sh`, then open `/setup` once to create the Owner, set your admin key, fill in Admin settings.
+4. Backups: `tools/keygen.php`, add the public key to `app/config.php`, `systemctl --user enable --now infynite-backup.timer` (see the guide).

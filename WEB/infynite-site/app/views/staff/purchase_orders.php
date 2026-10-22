@@ -1,0 +1,6 @@
+<?php $ptab = 'pos'; require __DIR__ . '/purch_tabs.php'; ?>
+<div class="top"><div><h2 style="margin:0">Purchase orders</h2></div><a class="btn" href="/staff/purchase-orders/new">+ New purchase order</a></div>
+<div class="tabs"><a href="/staff/purchase-orders" class="<?= $st === '' ? 'on' : '' ?>">All</a><?php foreach (PO_STATUSES as $k => $l): ?><a href="/staff/purchase-orders?status=<?= e($k) ?>" class="<?= $st === $k ? 'on' : '' ?>"><?= e($l) ?></a><?php endforeach; ?></div>
+<div class="card"><div class="tw"><table><tr><th>Number</th><th>Supplier</th><th>Ordered</th><th>Expected</th><th class="right">Total</th><th>Status</th></tr>
+<?php foreach ($rows as $r): $late = $r['status'] === 'ordered' && $r['expected_date'] && $r['expected_date'] < date('Y-m-d'); ?><tr><td><a href="/staff/purchase-orders/<?= (int) $r['id'] ?>"><?= e($r['number']) ?></a></td><td><?= e($r['sname']) ?></td><td><?= e(fmt_date($r['order_date'])) ?></td><td class="<?= $late ? 'overdue' : '' ?>"><?= e(fmt_date($r['expected_date'])) ?><?= $late ? ' (late)' : '' ?></td><td class="right"><?= e(money($r['total'])) ?></td><td><?= badge(PO_STATUSES[$r['status']], ['received' => 'p-ok', 'cancelled' => 'p-bad', 'ordered' => 'p-warn'][$r['status']]) ?></td></tr>
+<?php endforeach; if (!$rows): ?><tr><td colspan="6" class="muted">No purchase orders.</td></tr><?php endif; ?></table></div></div>

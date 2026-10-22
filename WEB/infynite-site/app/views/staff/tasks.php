@@ -1,5 +1,5 @@
 <?php function tq(array $over): string { return '/staff/tasks?' . http_build_query(array_merge($_GET, $over)); } $today = date('Y-m-d'); ?>
-<div class="top"><h2 style="margin:0">Tasks</h2><a class="btn" href="/staff/tasks/new">+ New task</a></div>
+<div class="top"><h2 style="margin:0">Tasks</h2><div><a class="btn alt" href="/staff/recurring">Recurring</a> <a class="btn alt" href="/staff/calendar">Calendar</a> <a class="btn" href="/staff/tasks/new">+ New task</a></div></div>
 <form class="filters" method="get"><input type="hidden" name="view" value="<?= e($view) ?>">
   <div><label>Assignee</label><select name="who" data-autosubmit><option value="all">Everyone</option><option value="me" <?= $who === 'me' ? 'selected' : '' ?>>Me</option><option value="none" <?= $who === 'none' ? 'selected' : '' ?>>Unassigned</option><?php foreach ($people as $p): ?><option value="<?= (int) $p['id'] ?>" <?= $who === (string) $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option><?php endforeach; ?></select></div>
   <div><label>Status</label><select name="status" data-autosubmit><option value="open" <?= $st === 'open' ? 'selected' : '' ?>>All open</option><option value="all" <?= $st === 'all' ? 'selected' : '' ?>>Including done</option><?= options(TASK_STATUSES, $st) ?></select></div>

@@ -38,7 +38,8 @@ function inv_input(): array
     if (!isset(STOCK_CATEGORIES[$d['category']])) { $errors[] = 'Invalid category.'; }
     $rl = num((string) ($_POST['reorder_level'] ?? '0')); if ($rl === null || (float) $rl < 0) { $errors[] = 'Reorder level must be a number ≥ 0.'; }
     $uc = trim((string) ($_POST['unit_cost'] ?? '')); if ($uc !== '' && (num($uc) === null || (float) $uc < 0)) { $errors[] = 'Unit cost must be a number.'; }
-    $d['reorder_level'] = $rl ?? '0'; $d['unit_cost'] = $uc === '' ? null : $uc;
+    $gp = trim((string) ($_POST['grams_per_unit'] ?? '')); if ($gp === '') { $gp = '1000'; } if (num($gp) === null || (float) $gp <= 0) { $errors[] = 'Grams per unit must be a number above 0.'; }
+    $d['reorder_level'] = $rl ?? '0'; $d['unit_cost'] = $uc === '' ? null : $uc; $d['grams_per_unit'] = $gp;
     return [$errors, $d];
 }
 
@@ -50,8 +51,8 @@ function inv_create(): void
     if ($qty === null || (float) $qty < 0) { $errors[] = 'Opening quantity must be a number ≥ 0.'; }
     if ($d['sku'] !== '' && one('SELECT id FROM is_inventory_items WHERE sku=?', [$d['sku']])) { $errors[] = 'That SKU already exists.'; }
     if ($errors) { render('staff/inventory_edit', ['title' => 'New inventory item', 'nav' => 'inventory', 'errors' => $errors, 'i' => $d + ['qty' => $_POST['qty'] ?? '0', 'id' => null]], 'staff'); return; }
-    $id = insert('INSERT INTO is_inventory_items (sku,name,category,material,color,unit,qty,reorder_level,location,supplier,unit_cost,notes,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        [$d['sku'] ?: null, $d['name'], $d['category'], $d['material'] ?: null, $d['color'] ?: null, $d['unit'], $qty, $d['reorder_level'], $d['location'] ?: null, $d['supplier'] ?: null, $d['unit_cost'], $d['notes'] ?: null, now(), now()]);
+    $id = insert('INSERT INTO is_inventory_items (sku,name,category,material,color,unit,qty,reorder_level,location,supplier,unit_cost,grams_per_unit,notes,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        [$d['sku'] ?: null, $d['name'], $d['category'], $d['material'] ?: null, $d['color'] ?: null, $d['unit'], $qty, $d['reorder_level'], $d['location'] ?: null, $d['supplier'] ?: null, $d['unit_cost'], $d['grams_per_unit'], $d['notes'] ?: null, now(), now()]);
     if ((float) $qty > 0) { q('INSERT INTO is_stock_moves (item_id,user_id,delta,qty_after,reason,note,created_at) VALUES (?,?,?,?,?,?,?)', [$id, $u['id'], $qty, $qty, 'adjust', 'Opening stock', now()]); }
     audit('stock.create', $d['name']);
     flash('Item added.');
@@ -73,8 +74,8 @@ function inv_update(string $id): void
     [$errors, $d] = inv_input();
     if ($d['sku'] !== '' && one('SELECT id FROM is_inventory_items WHERE sku=? AND id<>?', [$d['sku'], $i['id']])) { $errors[] = 'That SKU already exists.'; }
     if ($errors) { flash(implode(' ', $errors), 'bad'); redirect('/staff/inventory/' . $i['id'] . '?edit=1'); }
-    q('UPDATE is_inventory_items SET sku=?,name=?,category=?,material=?,color=?,unit=?,reorder_level=?,location=?,supplier=?,unit_cost=?,notes=?,active=?,updated_at=? WHERE id=?',
-        [$d['sku'] ?: null, $d['name'], $d['category'], $d['material'] ?: null, $d['color'] ?: null, $d['unit'], $d['reorder_level'], $d['location'] ?: null, $d['supplier'] ?: null, $d['unit_cost'], $d['notes'] ?: null, empty($_POST['archive']) ? 1 : 0, now(), $i['id']]);
+    q('UPDATE is_inventory_items SET sku=?,name=?,category=?,material=?,color=?,unit=?,reorder_level=?,location=?,supplier=?,unit_cost=?,grams_per_unit=?,notes=?,active=?,updated_at=? WHERE id=?',
+        [$d['sku'] ?: null, $d['name'], $d['category'], $d['material'] ?: null, $d['color'] ?: null, $d['unit'], $d['reorder_level'], $d['location'] ?: null, $d['supplier'] ?: null, $d['unit_cost'], $d['grams_per_unit'], $d['notes'] ?: null, empty($_POST['archive']) ? 1 : 0, now(), $i['id']]);
     audit('stock.edit', $d['name']);
     flash(empty($_POST['archive']) ? 'Item updated.' : 'Item archived.');
     redirect(empty($_POST['archive']) ? '/staff/inventory/' . $i['id'] : '/staff/inventory');
@@ -113,7 +114,10 @@ function inv_move(string $id): void
     }
     audit('stock.move', "item {$i['id']} $reason $delta");
     $msg = 'Stock updated: now ' . $new . ' ' . $i['unit'] . '.';
-    if ((float) $i['reorder_level'] > 0 && $new <= (float) $i['reorder_level']) { $msg .= ' Below reorder level, time to reorder.'; }
+    if ((float) $i['reorder_level'] > 0 && $new <= (float) $i['reorder_level']) {
+        $msg .= ' Below reorder level, time to reorder.';
+        if ($delta < 0) { notify('stock.low', "Low stock: {$i['name']}", "{$i['name']} is down to $new {$i['unit']} (reorder level {$i['reorder_level']}).\n" . app_url('/staff/inventory/' . $i['id'])); }
+    }
     flash($msg);
     redirect('/staff/inventory/' . $i['id']);
 }

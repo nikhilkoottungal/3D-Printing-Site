@@ -1,4 +1,4 @@
-<div class="top"><div><h2 style="margin:0">Knowledge &amp; procedures</h2><span class="muted">How we do things. Anyone on staff can edit; every change is versioned.</span></div><a class="btn" href="/staff/kb/new">+ New article</a></div>
+<div class="top"><div><h2 style="margin:0">Knowledge &amp; procedures</h2><span class="muted">How we do things. Anyone on staff can edit; every change is versioned.</span></div><div><a class="btn alt" href="/staff/kb.pdf">Download all (PDF)</a> <a class="btn" href="/staff/kb/new">+ New article</a></div></div>
 <form class="filters" method="get"><div><label>Search</label><input name="q" value="<?= e($q) ?>" placeholder="title or text"></div>
 <div><label>Type</label><select name="kind" data-autosubmit><option value="">All</option><option value="procedure" <?= $kind === 'procedure' ? 'selected' : '' ?>>Procedures</option><option value="knowledge" <?= $kind === 'knowledge' ? 'selected' : '' ?>>Knowledge</option></select></div><button class="btn alt sm">Search</button></form>
 <?php $cur = null; foreach ($rows as $r): if ($r['category'] !== $cur): if ($cur !== null) echo '</table></div></div>'; $cur = $r['category']; ?>

@@ -3,6 +3,7 @@
 return [
     'app_name'    => 'Infynite Solutions',
     'base_url'    => 'https://infynitesolutions.in',   // used in e-mailed links
+    // 'base_path' => '/portal',   // optional: only if mounted in a subfolder; auto-detected from SCRIPT_NAME otherwise
     'force_https' => true,                             // set false only for local development
     'debug'       => false,
     'setup_token' => 'CHANGE_ME_TO_A_LONG_RANDOM_STRING', // needed once, at /setup, to create the owner
@@ -31,6 +32,4 @@ return [
         // config_files[] (add Dolibarr conf.php), disk_quota_bytes (10 GB), retention (daily 14 / weekly 8 / monthly 12)
     ],
 
-    // Optional. Leave url empty to disable. Integration is server-side via the Dolibarr REST API only.
-    'dolibarr' => ['url' => '', 'api_key' => '', 'ui_url' => '', 'vat_rate' => 0],
 ];

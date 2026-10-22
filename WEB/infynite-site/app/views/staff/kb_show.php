@@ -1,5 +1,5 @@
 <div class="top"><div><h2 style="margin:0"><?= e($a['title']) ?></h2><span class="muted"><?= e($a['category']) ?> · <?= $a['kind'] === 'procedure' ? 'Procedure' : 'Knowledge' ?> · v<?= (int) $a['version'] ?> · updated <?= e(fmt_dt($a['updated_at'])) ?> by <?= e($a['uname'] ?? '?') ?><?= $a['review_due'] ? ' · review by ' . e(fmt_date($a['review_due'])) : '' ?></span></div>
-<div><a class="btn alt sm" href="/staff/kb">← All</a> <a class="btn sm" href="/staff/kb/<?= e($a['slug']) ?>/edit">Edit</a> <a class="btn alt sm" href="/staff/kb/<?= e($a['slug']) ?>/history">History</a></div></div>
+<div><a class="btn alt sm" href="/staff/kb">← All</a> <a class="btn sm" href="/staff/kb/<?= e($a['slug']) ?>/edit">Edit</a> <a class="btn alt sm" href="/staff/kb/<?= e($a['slug']) ?>/history">History</a> <a class="btn alt sm" href="/staff/kb/<?= e($a['slug']) ?>.pdf">PDF</a></div></div>
 <div class="grid g2" style="align-items:start;grid-template-columns:2fr 1fr">
 <div class="card"><?= md($a['body']) ?></div>
 <div>

@@ -1,0 +1,7 @@
+[Unit]
+Description=Infynite off-site copies (Google Drive / FTP)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Documents/WEB/infynite-site
+ExecStart=/usr/bin/php tools/offsite.php

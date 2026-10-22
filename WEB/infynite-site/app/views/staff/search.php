@@ -1,0 +1,4 @@
+<div class="top"><h2 style="margin:0">Search</h2></div>
+<form class="filters" method="get" action="/staff/search"><input name="q" value="<?= e($q) ?>" placeholder="Order, customer, invoice, task, procedure, item..." style="min-width:260px" autofocus aria-label="Search"><button class="btn">Search</button></form>
+<?php if (mb_strlen($q) < 2 && $q !== ''): ?><p class="muted">Type at least 2 characters.</p><?php elseif ($q !== '' && !$res): ?><p class="muted">Nothing found for "<?= e($q) ?>". You only see results your role may open.</p><?php endif; ?>
+<?php foreach ($res as $section => $rows): ?><div class="card mb"><h3><?= e($section) ?></h3><?php foreach ($rows as [$href, $title, $sub]): ?><div class="comment"><a href="<?= e($href) ?>"><?= e($title) ?></a><br><span class="who"><?= e($sub) ?></span></div><?php endforeach; ?></div><?php endforeach; ?>

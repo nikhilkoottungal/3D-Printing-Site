@@ -1,0 +1,13 @@
+[Unit]
+Description=Infynite portal (office LAN)
+After=network-online.target mariadb.service
+
+[Service]
+WorkingDirectory=%h/Documents/WEB/infynite-site
+Environment=PHP_CLI_SERVER_WORKERS=6
+ExecStart=/usr/bin/php -S 0.0.0.0:8080 -t public public/index.php
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

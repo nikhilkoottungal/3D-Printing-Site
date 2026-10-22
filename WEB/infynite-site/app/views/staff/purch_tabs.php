@@ -1,0 +1,2 @@
+<?php $__pt = ['suppliers' => ['/staff/suppliers', 'Suppliers'], 'pos' => ['/staff/purchase-orders', 'Purchase orders'], 'reorder' => ['/staff/reorder', 'Reorder suggestions'], 'bills' => ['/staff/bills', 'Supplier bills'], 'expenses' => ['/staff/expenses', 'Expenses']]; ?>
+<div class="tabs"><?php foreach ($__pt as $k => [$href, $label]): ?><a href="<?= $href ?>" class="<?= ($ptab ?? '') === $k ? 'on' : '' ?>"><?= e($label) ?></a><?php endforeach; ?></div>

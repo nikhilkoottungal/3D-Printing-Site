@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily Infynite backup
+
+[Timer]
+OnCalendar=*-*-* 22:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

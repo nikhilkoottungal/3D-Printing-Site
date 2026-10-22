@@ -38,10 +38,8 @@ function sreq_update(string $id): void
         if (!in_array($r['status'], ['requested', 'under_review', 'quoted'], true)) { flash('This order can no longer be re-quoted.', 'bad'); redirect($back); }
         q('UPDATE is_requests SET quote_amount=?, quote_note=? WHERE id=?', [$amount, $note ?: null, $r['id']]);
         set_request_status($r, 'quoted', 'Quote ' . money($amount) . ($note ? ' - ' . $note : ''), (int) $u['id']);
-        $c = one('SELECT * FROM is_users WHERE id=?', [$r['user_id']]);
-        send_mail($c['email'], "Your quote for {$r['ref']}", "Hi {$c['name']},\n\nYour quote is ready: " . money($amount) . ".\n" . ($note ? "$note\n" : '') . "\nReview and approve it in your account:\n" . cfg('base_url') . "/requests/{$r['id']}");
         audit('quote.send', $r['ref'] . ' ' . $amount);
-        flash('Quote sent to the customer.');
+        flash('Quote recorded. Tell the customer the price and note, then set the order to Approved when they agree.');
     } elseif ($action === 'status') {
         $s = (string) ($_POST['status'] ?? '');
         if (!isset(STATUSES[$s]) || $s === $r['status']) { flash('Choose a different status.', 'bad'); redirect($back); }
@@ -49,16 +47,10 @@ function sreq_update(string $id): void
         if ($s === 'quoted' && $r['quote_amount'] === null) { flash('Use "Send quote" to enter the price first.', 'bad'); redirect($back); }
         $note = trim((string) ($_POST['note'] ?? ''));
         set_request_status($r, $s, $note, (int) $u['id']);
-        if (in_array($s, ['dispatched', 'completed', 'failed', 'cancelled', 'scheduled', 'printing'], true)) {
-            $c = one('SELECT * FROM is_users WHERE id=?', [$r['user_id']]);
-            send_mail($c['email'], "Update on {$r['ref']}: " . STATUSES[$s], "Hi {$c['name']},\n\nYour order {$r['ref']} is now: " . STATUSES[$s] . ".\n" . ($note ? "$note\n" : '') . "\n" . cfg('base_url') . "/requests/{$r['id']}");
-        }
         audit('request.status', $r['ref'] . ' -> ' . $s);
         flash('Status updated.');
-    } elseif ($action === 'sync') {
-        if (!can('requests.quote', $u)) { abort(403); }
-        if ($r['quote_amount'] === null) { flash('Send a quote first.', 'bad'); redirect($back); }
-        flash(dol_sync_request($r), dol_enabled() ? 'ok' : 'bad');
+    } elseif (in_array($action, ['qc', 'issue', 'issue_resolve', 'delivery', 'job_add'], true)) {
+        order_action($action, $r, $u, $back);
     } elseif ($action === 'task') {
         $title = trim((string) ($_POST['title'] ?? ''));
         if ($title === '') { flash('Task title required.', 'bad'); redirect($back); }
@@ -149,6 +141,7 @@ function sreq_create(): void
         abort(500, 'Could not save the order. Please try again.');
     }
     audit('request.direct', $ref);
+    notify('order.new', "New order $ref", "{$u['name']} entered order $ref for {$customer['name']}: $qty x $material, $color.\n" . app_url('/staff/requests/' . $id));
     if ($assignee || !empty($_POST['make_task'])) {
         $tid = task_create('Produce ' . $ref . ': ' . $qty . ' × ' . $material . ' ' . $color, "Direct order for {$customer['name']}.\n\n" . ($notes ?: ''), $assignee, (int) $u['id'], 'normal', null, null, null, $id);
     }

@@ -13,3 +13,9 @@
 <?php if (can('requests.view')): ?><div class="card"><h3>Recent orders</h3><div class="tw"><table>
 <?php foreach ($recent as $r): ?><tr><td><a href="/staff/requests/<?= (int) $r['id'] ?>"><?= e($r['ref']) ?></a></td><td><?= e($r['cname']) ?></td><td><?= status_badge($r['status']) ?></td></tr><?php endforeach; ?><?php if (!$recent): ?><tr><td class="muted">No orders yet.</td></tr><?php endif; ?></table></div></div><?php endif; ?>
 </div>
+
+<?php if (can('requests.view') || $dash['queue']): ?><div class="grid g2" style="align-items:start;margin-top:16px">
+<?php if (can('requests.view')): ?><div class="card"><h3>Orders by stage</h3><?php if (!$dash['stages']): ?><p class="muted">No open orders.</p><?php else: ?><dl class="kv"><?php foreach (STATUSES as $k => $l): if (!empty($dash['stages'][$k])): ?><dt><a href="/staff/requests?status=<?= e($k) ?>"><?= e($l) ?></a></dt><dd><?= (int) $dash['stages'][$k] ?></dd><?php endif; endforeach; ?></dl><?php endif; ?><p class="muted" style="margin:0"><a href="/staff/queue"><?= (int) $dash['queue'] ?> print job(s) in the queue</a></p></div>
+<div class="card"><h3>Due in the next 7 days</h3><?php foreach ($dash['week'] as $o): ?><div class="comment"><a href="/staff/requests/<?= (int) $o['id'] ?>"><?= e($o['ref']) ?></a> <?= e($o['cname']) ?> <span class="<?= $o['due_date'] < date('Y-m-d') ? 'overdue' : 'muted' ?>">due <?= e(fmt_date($o['due_date'])) ?></span></div><?php endforeach; ?>
+<?php foreach ($dash['inv_due'] as $i): ?><div class="comment"><a href="/staff/invoices/<?= (int) $i['id'] ?>"><?= e($i['number']) ?></a> <?= e($i['bill_name']) ?> <span class="<?= $i['due_date'] < date('Y-m-d') ? 'overdue' : 'muted' ?>">payment due <?= e(fmt_date($i['due_date'])) ?></span></div><?php endforeach; ?>
+<?php if (!$dash['week'] && !$dash['inv_due']): ?><p class="muted">Nothing due.</p><?php endif; ?></div><?php endif; ?></div><?php endif; ?>

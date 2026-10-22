@@ -12,6 +12,7 @@
   <?php endforeach; ?>
   <form method="post" action="/staff/tasks/<?= (int) $t['id'] ?>/comment" class="mt"><?= csrf_field() ?><label for="body">Add a comment</label><textarea id="body" name="body" rows="3" required maxlength="5000"></textarea><button class="btn">Post comment</button></form></div>
 </div>
+<div class="card mb"><h3>Files</h3><?php require __DIR__ . '/attachments.php'; ?></div>
 <div class="card"><h3>Details</h3>
 <?php if ($canEdit): ?>
 <form method="post" action="/staff/tasks/<?= (int) $t['id'] ?>"><?= csrf_field() ?>

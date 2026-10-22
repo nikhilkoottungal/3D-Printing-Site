@@ -1,3 +1,5 @@
+> **Note (2026-10-22):** the project now runs on an office LAN server without Hostinger or Dolibarr. Where this document mentions Hostinger cron, Dolibarr databases or a missing Google Drive adapter, follow `FIRST_ADMIN_BACKUP_RESTORE_GUIDE.md` instead (off-site copies to Google Drive/FTP are built in Admin settings > Integrations; encrypted backups run from a systemd timer).
+
 # Backup & restore – operations guide (what is built)
 
 Design and reasoning: `BACKUP_RESTORE_PLAN.md`. This file is the **how-to** for the tools in `tools/`.

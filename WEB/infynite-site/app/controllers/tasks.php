@@ -80,7 +80,7 @@ function task_show(string $id): void
     $u = require_staff();
     $t = task_load((int) $id);
     $comments = all('SELECT c.*, u.name uname FROM is_task_comments c LEFT JOIN is_users u ON u.id=c.user_id WHERE c.task_id=? ORDER BY c.id', [$t['id']]);
-    render('staff/task_show', ['title' => $t['title'], 'nav' => 'tasks', 't' => $t, 'comments' => $comments, 'people' => staff_users(), 'u' => $u, 'canEdit' => task_can_edit($t, $u)], 'staff');
+    render('staff/task_show', ['title' => $t['title'], 'nav' => 'tasks', 't' => $t, 'comments' => $comments, 'people' => staff_users(), 'u' => $u, 'canEdit' => task_can_edit($t, $u), 'att' => att_for('task', (int) $t['id'])], 'staff');
 }
 
 function task_update(string $id): void
