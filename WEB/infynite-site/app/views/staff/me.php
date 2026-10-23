@@ -34,7 +34,8 @@
 <label for="cp">Current password</label><input id="cp" name="current" type="password" required autocomplete="current-password">
 <label for="n1">New password (10+ characters)</label><input id="n1" name="new1" type="password" required autocomplete="new-password">
 <label for="n2">Repeat new password</label><input id="n2" name="new2" type="password" required autocomplete="new-password"><button class="btn">Change password</button></form></details>
-<div class="card mt"><h3>Two-factor login</h3>
+<div class="card mt" id="twofa"><h3>Two-factor login</h3>
+<?php if (!empty($_SESSION['twofa_msg'])): [$__tt, $__tm] = $_SESSION['twofa_msg']; unset($_SESSION['twofa_msg']); ?><div class="flash <?= $__tt === 'bad' ? 'bad' : 'ok' ?>"><?= e($__tm) ?></div><?php endif; ?>
 <?php if ($full['totp_enabled']): ?><p>On. Logging in asks for a code from your authenticator app after the password.</p>
 <form method="post" action="/staff/me"><?= csrf_field() ?><input type="hidden" name="action" value="totp_off"><div class="row"><div><label for="d1">Password</label><input id="d1" name="current" type="password" required></div><div><label for="d2">Current 6-digit code, or a recovery code</label><input id="d2" name="code" required inputmode="numeric" autocomplete="off"></div></div><button class="btn danger sm" data-confirm="Turn off two-factor login?">Turn off</button></form>
 <?php elseif ($secret): ?><p>1. Open an authenticator app (Google Authenticator, Authy, Microsoft Authenticator, 1Password), choose <b>Add account</b> and <b>Scan a QR code</b>:</p>

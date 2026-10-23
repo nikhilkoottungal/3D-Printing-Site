@@ -135,7 +135,7 @@ function po_update(string $id): void
             $i = one('SELECT * FROM is_inventory_items WHERE id=? FOR UPDATE', [$l['item_id']]);
             if (!$i) { continue; }
             $new = (float) $i['qty'] + (float) $l['qty'];
-            q('UPDATE is_inventory_items SET qty=?, unit_cost=?, updated_at=? WHERE id=?', [$new, $l['unit_cost'], now(), $i['id']]);
+            q('UPDATE is_inventory_items SET qty=?, unit_cost=IF(? > 0, ?, unit_cost), updated_at=? WHERE id=?', [$new, (float) $l['unit_cost'], (float) $l['unit_cost'], now(), $i['id']]);   // a line without a price must not wipe the item's cost (job costing uses it)
             q("INSERT INTO is_stock_moves (item_id,user_id,delta,qty_after,reason,request_id,note,created_at) VALUES (?,?,?,?,'purchase',NULL,?,?)", [$i['id'], $u['id'], $l['qty'], $new, 'Received ' . $p['number'], now()]);
         }
         q("UPDATE is_purchase_orders SET status='received', received_at=? WHERE id=?", [now(), $p['id']]);

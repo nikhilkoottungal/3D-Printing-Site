@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS is_requests (
   source VARCHAR(10) NOT NULL DEFAULT 'portal',
   created_by INT UNSIGNED NULL,
   due_date DATE NULL,
+  delivery_method VARCHAR(8) NULL,
   courier VARCHAR(80) NULL,
   tracking VARCHAR(80) NULL,
   dispatched_at DATETIME NULL,

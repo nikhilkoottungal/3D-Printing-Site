@@ -40,7 +40,7 @@ return [
 
     // Backups: see docs/BACKUP_RESTORE_PLAN.md. Only PUBLIC keys go here (generate keys with tools/keygen.php on an owner's PC).
     'backup' => [
-        'recipients'   => [],   // e.g. ['<owner1 public key>', '<owner2 public key>']  - public keys only
+        'recipients'   => [],   // e.g. ['<owner1 public key>', '<owner2 public key>']  - BOTH owners
         'destinations' => [],   // e.g. [['type' => 'folder', 'path' => '/path/to/offsite-folder']]  (Google Drive adapter: later)
         'notify_cmd'   => null, // optional command that receives the message as its single argument
         // optional overrides: dir, chunk_mb (500), keep_local (3), databases[] (add Dolibarr), paths[] (add Dolibarr documents),

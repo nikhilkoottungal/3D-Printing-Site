@@ -79,6 +79,7 @@ function admin_lock(): void
 {
     require_staff('team.manage');
     unset($_SESSION['admin_until']);
+    $_SESSION['reload_ok'] = time();   // the page script reloads right after locking (maybe much later, when the tab is shown again): that reload must not sign the person out
     flash('Admin settings locked.');
     redirect('/staff/admin');
 }
@@ -86,7 +87,7 @@ function admin_lock(): void
 function admin_ping(): void
 {
     $u = user();
-    if (!$u || !is_staff($u) || !can('team.manage', $u) || !admin_unlocked()) { http_response_code(403); return; }
+    if (!$u || !is_staff($u) || !can('team.manage', $u) || !admin_unlocked()) { if ($u) { $_SESSION['reload_ok'] = time(); } http_response_code(403); return; }   // 403 makes the page script reload to show the key prompt
     header('Cache-Control: no-store'); http_response_code(204);
 }
 

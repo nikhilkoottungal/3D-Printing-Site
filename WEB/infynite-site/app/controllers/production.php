@@ -71,7 +71,7 @@ function challan_pdf(string $id): void
 {
     require_staff('requests.view'); $r = pdf_order($id);
     $p = new Pdf('Delivery challan ' . $r['ref']);
-    doc_head($p, 'DELIVERY CHALLAN', ['Challan no.' => 'DC-' . $r['ref'], 'Date' => date('d M Y'), 'Order' => $r['ref'], 'Courier' => (string) ($r['courier'] ?: '-'), 'Tracking' => (string) ($r['tracking'] ?: '-')]);
+    doc_head($p, 'DELIVERY CHALLAN', ['Challan no.' => 'DC-' . $r['ref'], 'Date' => date('d M Y'), 'Order' => $r['ref'], 'Delivery' => (string) (DELIVERY_METHODS[$r['delivery_method'] ?? ''] ?? '-'), 'Courier' => (string) ($r['courier'] ?: '-'), 'Tracking' => (string) ($r['tracking'] ?: '-')]);
     party($p, 'Deliver to', [$r['cname'], $r['caddress'], trim($r['cphone'])]);
     $p->gap(6);
     $p->table([['#', 26, 'L'], ['Description', 370, 'L'], ['Qty', 110, 'R']], [['1', '3D printed part(s): ' . $r['material'] . ', ' . $r['color'], (string) (int) $r['quantity']]]);
@@ -96,7 +96,7 @@ function order_extras(array $r): array
 {
     $done = []; foreach (all('SELECT q.item, q.done, q.at, u.name uname FROM is_order_qc q LEFT JOIN is_users u ON u.id=q.by_user WHERE q.request_id=?', [$r['id']]) as $q) { $done[$q['item']] = $q; }
     $jobs = all('SELECT j.*, p.name pname, i.name iname FROM is_print_jobs j LEFT JOIN is_printers p ON p.id=j.printer_id LEFT JOIN is_inventory_items i ON i.id=j.item_id WHERE j.request_id=? ORDER BY j.id', [$r['id']]);
-    $cost = 0.0; foreach ($jobs as $j) { if ($j['status'] === 'done') { $cost += (float) $j['material_cost'] + (float) $j['machine_cost']; } }
+    $cost = 0.0; foreach ($jobs as $j) { if (in_array($j['status'], ['done', 'failed'], true)) { $cost += (float) $j['material_cost'] + (float) $j['machine_cost']; } }
     return ['qc' => $done, 'qc_items' => qc_items(), 'issues' => all('SELECT i.*, u.name uname FROM is_order_issues i LEFT JOIN is_users u ON u.id=i.created_by WHERE i.request_id=? ORDER BY i.id DESC', [$r['id']]),
         'jobs' => $jobs, 'job_cost' => $cost, 'printers' => all("SELECT id,name FROM is_printers WHERE active=1 AND status<>'offline' ORDER BY name"),
         'filaments' => all("SELECT id,name,unit,qty FROM is_inventory_items WHERE active=1 AND category='filament' ORDER BY name")];
@@ -127,10 +127,13 @@ function order_action(string $action, array $r, array $u, string $back): void
         if (!$prod) { abort(403); }
         $due = trim((string) ($_POST['due_date'] ?? ''));
         if ($due !== '' && !valid_date($due)) { flash('Check the promised date.', 'bad'); redirect($back); }
-        q('UPDATE is_requests SET courier=?, tracking=?, due_date=? WHERE id=?', [mb_substr(trim((string) ($_POST['courier'] ?? '')), 0, 80) ?: null, mb_substr(trim((string) ($_POST['tracking'] ?? '')), 0, 80) ?: null, $due ?: null, $r['id']]);
+        $dm = (string) ($_POST['delivery_method'] ?? ''); if ($dm !== '' && !isset(DELIVERY_METHODS[$dm])) { flash('Choose courier, hand delivery or customer pickup.', 'bad'); redirect($back); }
+        $courier = $dm === 'courier' || $dm === '' ? (mb_substr(trim((string) ($_POST['courier'] ?? '')), 0, 80) ?: null) : null; $track = $dm === 'courier' || $dm === '' ? (mb_substr(trim((string) ($_POST['tracking'] ?? '')), 0, 80) ?: null) : null;
+        q('UPDATE is_requests SET delivery_method=?, courier=?, tracking=?, due_date=? WHERE id=?', [$dm ?: null, $courier, $track, $due ?: null, $r['id']]);
         audit('order.delivery', $r['ref']); flash('Delivery details saved.');
     } elseif ($action === 'job_add') {
         if (!can('printers.manage', $u)) { abort(403, 'Your role cannot plan print jobs.'); }
+        if (in_array($r['status'], ['completed', 'cancelled', 'failed'], true)) { flash('This order is ' . strtolower(STATUSES[$r['status']]) . ': print jobs cannot be planned on it.', 'bad'); redirect($back); }
         $pr = (int) ($_POST['printer_id'] ?? 0) ?: null; $it = (int) ($_POST['item_id'] ?? 0) ?: null; $d = trim((string) ($_POST['scheduled_for'] ?? ''));
         if ($pr && !one('SELECT id FROM is_printers WHERE id=? AND active=1', [$pr])) { flash('Unknown printer.', 'bad'); redirect($back); }
         if ($it && !one("SELECT id FROM is_inventory_items WHERE id=? AND category='filament'", [$it])) { flash('Choose a filament item.', 'bad'); redirect($back); }
@@ -143,6 +146,8 @@ function order_action(string $action, array $r, array $u, string $back): void
 }
 
 /* ---------- printers, queue, jobs ---------- */
+/** How a finished order reaches the customer. */
+const DELIVERY_METHODS = ['courier' => 'Courier', 'hand' => 'Hand delivery by our staff', 'pickup' => 'Customer pickup'];
 const PRINTER_STATUSES = ['active' => 'Active', 'maintenance' => 'In maintenance', 'offline' => 'Offline'];
 function printers_page(): void
 {
@@ -185,6 +190,8 @@ function job_update(string $id): void
         $hours = num_in($_POST['actual_hours'] ?? ($j['est_hours'] ?? 0), 100000); $grams = num_in($_POST['actual_grams'] ?? ($j['est_grams'] ?? 0), 1000000);
         $matCost = null; $pdo = db(); $pdo->beginTransaction();
         try {
+            $cur = one('SELECT status FROM is_print_jobs WHERE id=? FOR UPDATE', [$j['id']]);   // two clicks / two people at once must not deduct twice
+            if (!$cur || !in_array($cur['status'], ['queued', 'printing'], true)) { $pdo->rollBack(); flash('That job was already finished or removed.', 'bad'); redirect($back); }
             if ($j['item_id'] && $grams > 0) {
                 $i = one('SELECT * FROM is_inventory_items WHERE id=? FOR UPDATE', [$j['item_id']]);
                 $per = max(0.01, (float) $i['grams_per_unit']); $use = round($grams / $per, 2); $new = (float) $i['qty'] - $use;
@@ -199,8 +206,33 @@ function job_update(string $id): void
         } catch (Throwable $e) { if ($pdo->inTransaction()) { $pdo->rollBack(); } error_log('job finish failed: ' . $e->getMessage()); abort(500, 'Could not finish the job.'); }
         if (!empty($low)) { notify('stock.low', "Low stock: {$low['name']}", "{$low['name']} is low after print job #{$j['id']}.\n" . app_url('/staff/inventory/' . $low['id'])); }
         audit('job.finish', '#' . $j['id'] . ' ' . $grams . ' g'); flash('Job finished' . ($matCost !== null ? ': filament deducted from stock and cost recorded.' : '.'));
+        // Last open job done and the order is on Printing -> it is ready for the quality check (nothing else is changed automatically).
+        $ro = one('SELECT * FROM is_requests WHERE id=?', [$j['rid']]);
+        if ($ro && $ro['status'] === 'printing' && !(int) one("SELECT COUNT(*) c FROM is_print_jobs WHERE request_id=? AND status IN ('queued','printing')", [$j['rid']])['c']) {
+            set_request_status($ro, 'quality_check', 'All print jobs finished (job #' . $j['id'] . ')', (int) $u['id']);
+            flash('Order ' . $j['ref'] . ' moved to Quality check: all its print jobs are finished.');
+        }
     } elseif ($a === 'fail' && in_array($j['status'], ['queued', 'printing'], true)) {
-        q("UPDATE is_print_jobs SET status='failed', finished_at=? WHERE id=?", [now(), $j['id']]); audit('job.fail', '#' . $j['id']); flash('Job marked failed. No stock was deducted.');
+        // Optional: filament already wasted on the failed print (grams). Blank = nothing deducted. Recorded as a 'waste' stock move and as the job's material cost.
+        $w = num_in($_POST['wasted_grams'] ?? 0, 1000000); $matCost = null; $low = null;
+        $pdo = db(); $pdo->beginTransaction();
+        try {
+            $cur = one('SELECT status FROM is_print_jobs WHERE id=? FOR UPDATE', [$j['id']]);
+            if (!$cur || !in_array($cur['status'], ['queued', 'printing'], true)) { $pdo->rollBack(); flash('That job was already finished or removed.', 'bad'); redirect($back); }
+            if ($j['item_id'] && $w > 0) {
+                $i = one('SELECT * FROM is_inventory_items WHERE id=? FOR UPDATE', [$j['item_id']]);
+                $per = max(0.01, (float) $i['grams_per_unit']); $use = round($w / $per, 2); $new = (float) $i['qty'] - $use;
+                if ($new < 0) { $pdo->rollBack(); flash("Not enough stock of {$i['name']}: {$i['qty']} {$i['unit']} left, the wasted filament is $use. Correct the stock first.", 'bad'); redirect($back); }
+                q('UPDATE is_inventory_items SET qty=?, updated_at=? WHERE id=?', [$new, now(), $i['id']]);
+                q("INSERT INTO is_stock_moves (item_id,user_id,delta,qty_after,reason,request_id,note,created_at) VALUES (?,?,?,?,'waste',?,?,?)", [$i['id'], $u['id'], -$use, $new, $j['rid'], 'Failed print job #' . $j['id'] . ' (' . $w . ' g wasted)', now()]);
+                $matCost = round($use * (float) $i['unit_cost'], 2);
+                if ((float) $i['reorder_level'] > 0 && $new <= (float) $i['reorder_level']) { $low = $i; }
+            }
+            q("UPDATE is_print_jobs SET status='failed', actual_grams=?, material_cost=?, finished_at=? WHERE id=?", [$w > 0 ? $w : null, $matCost, now(), $j['id']]);
+            $pdo->commit();
+        } catch (Throwable $e) { if ($pdo->inTransaction()) { $pdo->rollBack(); } error_log('job fail failed: ' . $e->getMessage()); abort(500, 'Could not mark the job as failed.'); }
+        if ($low) { notify('stock.low', "Low stock: {$low['name']}", "{$low['name']} is low after failed print job #{$j['id']}.\n" . app_url('/staff/inventory/' . $low['id'])); }
+        audit('job.fail', '#' . $j['id'] . ($w > 0 ? ' ' . $w . ' g wasted' : '')); flash($matCost !== null ? 'Job marked failed: ' . $w . ' g of filament deducted from stock as waste and counted in the order cost.' : 'Job marked failed. No stock was deducted.');
     } elseif ($a === 'cancel' && $j['status'] === 'queued') {
         q('DELETE FROM is_print_jobs WHERE id=?', [$j['id']]); flash('Job removed.');
     } else { flash('That action is not available for this job.', 'bad'); }

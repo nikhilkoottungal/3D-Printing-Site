@@ -2,7 +2,12 @@
 /** Backups page (Owner login; no extra admin-key prompt): status, where backups go (Local / FTP), the schedule, and which backups exist to restore from. tools/backup.php + tools/backup_scheduled.php make them, tools/restore.php restores. */
 
 /** Backups are for the Owner role only. The admin key is NOT asked here (it protects Admin settings). */
-function backups_guard(): array { return require_staff('team.manage'); }
+function backups_guard(): array
+{
+    $u = require_staff('team.manage');
+    admin_unlocked();   // same admin session as Settings/Team: while it is unlocked, working on Backups keeps it alive (and carries the auto-lock hook); never prompts
+    return $u;
+}
 
 function backup_last_finished(?array $status): ?int
 {
@@ -96,13 +101,8 @@ function backups_run_now(): void
     if (backup_running($dir)) { flash('A backup is already running. Refresh this page in a minute.', 'bad'); redirect('/staff/backups'); }
     $log = cfg('storage') . '/logs/backup-now.log';
     @file_put_contents($dir . '/run-now.flag', 'starting');   // the page shows the loader from the first moment; the script removes it at the end
-    if (PHP_OS_FAMILY === 'Windows') {
-        $cmd = '"' . PHP_BINARY . '" "' . APP_ROOT . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'backup_scheduled.php" --force > "' . $log . '" 2>&1';
-        $p = @proc_open($cmd, [], $pipes, APP_ROOT, getenv());
-    } else {
-        $cmd = 'nohup ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(APP_ROOT . '/tools/backup_scheduled.php') . ' --force > ' . escapeshellarg($log) . ' 2>&1 &';
-        $p = @proc_open(['/bin/sh', '-c', $cmd], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, APP_ROOT, array_merge(getenv() ?: [], ['HOME' => getenv('HOME') ?: '/root']));
-    }
+    $cmd = 'nohup ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(APP_ROOT . '/tools/backup_scheduled.php') . ' --force > ' . escapeshellarg($log) . ' 2>&1 &';
+    $p = @proc_open(['/bin/sh', '-c', $cmd], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, APP_ROOT, array_merge(getenv() ?: [], ['HOME' => getenv('HOME') ?: '/root']));
     if (!is_resource($p)) { @unlink($dir . '/run-now.flag'); flash('Could not start the backup.', 'bad'); redirect('/staff/backups'); }
     proc_close($p);
     audit('admin.backup_now', backup_targets_text(backup_targets()));

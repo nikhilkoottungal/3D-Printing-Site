@@ -205,3 +205,17 @@ details.card[open]>summary.pwsum::before{content:'\25BE  '}
 .settings input,.settings select,.settings textarea{padding:6px 10px;font-size:.9rem;margin-bottom:10px}
 .settings h3{margin-bottom:10px}
 @media(max-width:900px){.settings .setgrid{grid-template-columns:1fr}}
+.card[id]{scroll-margin-top:16px}
+
+/* the page column must be allowed to shrink (grid items default to min-width:auto, so one wide table/board stretched the whole page sideways) */
+.app>div{min-width:0}
+.main{min-width:0;max-width:100%}
+.grid>*,.kpi>*,.row>*{min-width:0}
+.row>*{min-width:min(140px,100%)}
+.card{min-width:0}
+.main pre,.main code{overflow-wrap:anywhere}
+.main pre{white-space:pre-wrap}
+.kv{grid-template-columns:minmax(0,140px) minmax(0,1fr)}.kv dd{overflow-wrap:anywhere}
+@media(max-width:520px){.kv{grid-template-columns:minmax(0,1fr)}}
+.main p,.main li,.main dd,.main .muted,.main label{overflow-wrap:anywhere}
+@media(max-height:580px){.side{padding-top:6px}.side .logo{display:none}.side a,.side .btn.link{padding:1px 10px;font-size:.8rem;line-height:1.2}.side .sidebox{margin-bottom:3px}.side .sidesearch{padding-bottom:3px}.side .sidesearch input{padding:4px 8px}}

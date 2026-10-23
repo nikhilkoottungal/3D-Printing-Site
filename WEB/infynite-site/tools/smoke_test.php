@@ -556,10 +556,10 @@ try {
     $samTeam = $sam->get('/staff/team')['body'];
     t('non-admin staff: Team & roles stays in their sidebar, no Admin settings, no admin tabs', str_contains($samHome, '>Team &amp; roles</a>') && !str_contains($samHome, 'Admin settings') && !str_contains($samTeam, 'aria-label="Admin settings"'));
     $bp = $o->get('/staff/backups');
-    t('unlocked admin pages carry the auto-lock hook (tab switch / 30 s idle); other pages (incl. Backups) do not', ($admBody = $o->get("/staff/admin")["body"]) !== "" && str_contains($admBody, 'data-admin-autolock') && str_contains($admBody, 'data-seconds="30"') && !str_contains($bp['body'], 'data-admin-autolock') && !str_contains($o->get('/staff/tasks')['body'], 'data-admin-autolock'));
+    t('unlocked admin pages (Settings, Team, Backups) carry the auto-lock hook (tab switch / 30 s idle); other pages do not', ($admBody = $o->get("/staff/admin")["body"]) !== "" && str_contains($admBody, 'data-admin-autolock') && str_contains($admBody, 'data-seconds="30"') && str_contains($bp['body'], 'data-admin-autolock') && !str_contains($o->get('/staff/tasks')['body'], 'data-admin-autolock'));
     t('heartbeat: 204 while unlocked, 403 for others', $o->get('/staff/admin/ping')['code'] === 204 && $sam->get('/staff/admin/ping')['code'] === 403 && (new Client($B))->get('/staff/admin/ping')['code'] === 403);
     $o->post('/staff/admin/lock', [], '/staff/admin');
-    t('the lock call (used on tab switch / idle) locks at once: heartbeat 403, Admin settings ask for the key, Backups still open', $o->get('/staff/admin/ping')['code'] === 403 && str_contains($o->get('/staff/admin')['body'], 'admin key') && !str_contains($o->get('/staff/admin')['body'], 'Save settings') && str_contains($o->get('/staff/backups')['body'], 'name="backup_local"'));
+    t('the lock call (used on tab switch / idle) locks at once: heartbeat 403, Admin settings ask for the key, Backups still open', $o->get('/staff/admin/ping')['code'] === 403 && str_contains($o->get('/staff/admin')['body'], 'admin key') && !str_contains($o->get('/staff/admin')['body'], 'Save settings') && str_contains(($lb = $o->get('/staff/backups')['body']), 'name="backup_local"') && !str_contains($lb, 'data-admin-autolock') && !str_contains($lb, 'Enter the admin key'));
     $o->post('/staff/admin/unlock', ['admin_key' => 'correct horse battery 2'], '/staff/admin');
     $bp = $o->get('/staff/backups');
     t('Backups page (admin unlocked) shows location, schedule, FTP fields and restore help', $bp['code'] === 200 && str_contains($bp['body'], 'name="backup_local"') && str_contains($bp['body'], 'name="backup_freq"') && str_contains($bp['body'], 'name="ftp_host"') && str_contains($bp['body'], '--ftp'));
@@ -616,7 +616,7 @@ try {
         t('without --run the newest FTP backup is used', $rc6 === 0 && str_contains($out6, "Run $runId"));
         $o->post('/staff/backups', $bk(['backup_ftp' => '']), '/staff/backups');
         sleep(2); [$rc7, $out7] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php', '--force']);
-        t('with Local selected nothing is uploaded to FTP', $rc7 === 0 && !str_contains($out7, 'Uploading to the FTP') && count(glob("$ftpRoot/portal/backups/runs/*/meta.json")) === 1);
+        t('with Local selected nothing is uploaded to FTP', $rc7 === 0 && !str_contains($out7, 'Uploading to the FTP') && count(glob("$ftpRoot/portal/backups/runs/*/meta.json")) === 1, 'rc=' . $rc7 . ' ftpruns=' . count(glob("$ftpRoot/portal/backups/runs/*/meta.json")) . ' ' . trim(substr($out7, -240)));
         $o->post('/staff/backups', $bk(['backup_freq' => 'off']), '/staff/backups');
         [$rc8, $out8] = $cli([dirname(__DIR__) . '/tools/backup_scheduled.php']);
         t('schedule "never" makes no backup', str_contains($out8, 'Not due'));
@@ -722,6 +722,59 @@ try {
     $jobPost(['est_grams' => '100']); $job2 = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
     $o->post("/staff/jobs/$job2", ['action' => 'fail'], '/staff/queue');
     t('a failed job deducts nothing', $pdo->query("SELECT status FROM is_print_jobs WHERE id=$job2")->fetchColumn() === 'failed' && (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn() === 1.75);
+    // relations: closing an order, planning on closed orders, stock stays consistent
+    $qBefore = (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn();
+    $jobPost(['est_grams' => '50']); $job3 = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
+    $jobPost(['est_grams' => '60']); $job4 = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
+    $o->post("/staff/jobs/$job4", ['action' => 'start'], '/staff/queue');
+    $st0 = (string) $pdo->query("SELECT status FROM is_requests WHERE id=$ord2")->fetchColumn();
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => 'cancelled', 'note' => 'customer withdrew'], "/staff/requests/$ord2");
+    t('cancelling an order removes its queued print jobs (and says so in the history)', $cnt("SELECT COUNT(*) FROM is_print_jobs WHERE id=$job3") === 0 && $cnt("SELECT COUNT(*) FROM is_request_history WHERE request_id=$ord2 AND status='cancelled' AND note LIKE '%queued print job(s) removed%'") === 1);
+    t('a job already printing is kept and flagged in the history', $pdo->query("SELECT status FROM is_print_jobs WHERE id=$job4")->fetchColumn() === 'printing' && $cnt("SELECT COUNT(*) FROM is_request_history WHERE request_id=$ord2 AND note LIKE '%still printing%'") === 1);
+    $o->post("/staff/requests/$ord2", ['action' => 'job_add', 'est_grams' => '10', 'item_id' => (string) $fil], "/staff/requests/$ord2");
+    t('planning a print job on a cancelled order is refused', $cnt("SELECT COUNT(*) FROM is_print_jobs WHERE request_id=$ord2 AND status='queued'") === 0 && str_contains($o->get("/staff/requests/$ord2")['body'], 'print jobs cannot be planned'));
+    $o->post("/staff/jobs/$job4", ['action' => 'fail'], '/staff/queue');
+    t('stock is untouched by cancelled and failed work', (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn() === $qBefore);
+    $sumMoves = (float) $pdo->query("SELECT COALESCE(SUM(delta),0) FROM is_stock_moves WHERE item_id=$fil")->fetchColumn();
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => $st0, 'note' => 'test: restore'], "/staff/requests/$ord2");
+    t('every stock item equals the sum of its stock moves (no silent changes)', abs($sumMoves - (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn()) < 0.005 || $cnt("SELECT COUNT(*) FROM is_stock_moves WHERE item_id=$fil") === 0);
+    // failed print with wasted filament, and the order moving to Quality check by itself
+    $q0 = (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn();
+    $jobPost(['est_grams' => '300']); $jw = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
+    $o->post("/staff/jobs/$jw", ['action' => 'fail', 'wasted_grams' => '5000'], '/staff/queue');
+    t('failed print: wasted filament more than the stock is refused and the job stays open', $pdo->query("SELECT status FROM is_print_jobs WHERE id=$jw")->fetchColumn() === 'queued' && (float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn() === $q0);
+    $o->post("/staff/jobs/$jw", ['action' => 'fail', 'wasted_grams' => '100'], '/staff/queue');
+    $jwr = $pdo->query("SELECT * FROM is_print_jobs WHERE id=$jw")->fetch(PDO::FETCH_ASSOC);
+    t('failed print: wasted grams are deducted as a waste move and costed to the order', $jwr['status'] === 'failed' && abs((float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn() - ($q0 - 0.1)) < 0.005 && $jwr['material_cost'] === '100.00'
+        && $cnt("SELECT COUNT(*) FROM is_stock_moves WHERE item_id=$fil AND reason='waste' AND request_id=$ord2 AND note LIKE 'Failed print job #$jw%'") === 1 && str_contains($o->get("/staff/requests/$ord2")['body'], 'wasted 100'));
+    $o->post("/staff/jobs/$jw", ['action' => 'fail', 'wasted_grams' => '100'], '/staff/queue');
+    t('a failed job cannot be failed twice (no second deduction)', abs((float) $pdo->query("SELECT qty FROM is_inventory_items WHERE id=$fil")->fetchColumn() - ($q0 - 0.1)) < 0.005);
+    $st1 = (string) $pdo->query("SELECT status FROM is_requests WHERE id=$ord2")->fetchColumn();
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => 'approved', 'note' => 'test'], "/staff/requests/$ord2");
+    $jobPost(['est_grams' => '10']); $ja = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
+    $jobPost(['est_grams' => '10']); $jb = $cnt("SELECT id FROM is_print_jobs ORDER BY id DESC LIMIT 1");
+    $o->post("/staff/jobs/$ja", ['action' => 'start'], '/staff/queue');
+    $o->post("/staff/jobs/$ja", ['action' => 'finish', 'actual_hours' => '1', 'actual_grams' => '10'], '/staff/queue');
+    t('finishing a job while another is still open leaves the order on Printing', $pdo->query("SELECT status FROM is_requests WHERE id=$ord2")->fetchColumn() === 'printing');
+    $o->post("/staff/jobs/$jb", ['action' => 'finish', 'actual_hours' => '1', 'actual_grams' => '10'], '/staff/queue');
+    t('finishing the last open job moves the order to Quality check and says why in its history', $pdo->query("SELECT status FROM is_requests WHERE id=$ord2")->fetchColumn() === 'quality_check' && $cnt("SELECT COUNT(*) FROM is_request_history WHERE request_id=$ord2 AND status='quality_check' AND note LIKE 'All print jobs finished%'") === 1);
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => $st1, 'note' => 'test: restore'], "/staff/requests/$ord2");
+    // delivery: courier / hand delivery / customer pickup
+    $dl = fn($x) => $o->post("/staff/requests/$ord2", array_merge(['action' => 'delivery', 'due_date' => '2026-12-31'], $x), "/staff/requests/$ord2");
+    $dl(['delivery_method' => 'teleport']);
+    t('an unknown delivery method is rejected', $pdo->query("SELECT COALESCE(delivery_method,'') FROM is_requests WHERE id=$ord2")->fetchColumn() === '');
+    $dl(['delivery_method' => 'courier', 'courier' => 'DTDC', 'tracking' => 'D777']);
+    t('courier: method, courier and tracking saved', $pdo->query("SELECT CONCAT(delivery_method,'/',courier,'/',tracking) FROM is_requests WHERE id=$ord2")->fetchColumn() === 'courier/DTDC/D777');
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => 'dispatched', 'note' => ''], "/staff/requests/$ord2");
+    t('dispatching by courier writes the courier and tracking into the order history', $cnt("SELECT COUNT(*) FROM is_request_history WHERE request_id=$ord2 AND status='dispatched' AND note LIKE '%[Courier: DTDC (tracking D777)]%'") === 1);
+    $dl(['delivery_method' => 'pickup', 'courier' => 'DTDC', 'tracking' => 'D777']);
+    t('customer pickup: courier and tracking are cleared', $pdo->query("SELECT CONCAT(delivery_method,'/',COALESCE(courier,''),'/',COALESCE(tracking,'')) FROM is_requests WHERE id=$ord2")->fetchColumn() === 'pickup//' && str_contains($o->get("/staff/requests/$ord2")['body'], 'Customer collects it'));
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => 'completed', 'note' => 'collected'], "/staff/requests/$ord2");
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => 'dispatched', 'note' => 'ready at counter'], "/staff/requests/$ord2");
+    t('pickup dispatch is noted in the history', $cnt("SELECT COUNT(*) FROM is_request_history WHERE request_id=$ord2 AND status='dispatched' AND note LIKE '%ready at counter [Customer pickup]%'") === 1);
+    $dl(['delivery_method' => 'hand']);
+    t('hand delivery saved; delivery challan PDF shows the method', $pdo->query("SELECT delivery_method FROM is_requests WHERE id=$ord2")->fetchColumn() === 'hand' && ($ch = $o->get("/staff/requests/$ord2/challan.pdf"))['code'] === 200 && str_starts_with($ch['body'], '%PDF'));
+    $o->post("/staff/requests/$ord2", ['action' => 'status', 'status' => $st1, 'note' => 'test: restore'], "/staff/requests/$ord2");
     t('queue calendar shows the planned job', str_contains($o->get('/staff/queue')['body'], date('D j', strtotime('+2 days'))));
     t('the print queue needs a login', (new Client($B))->get('/staff/queue')['code'] === 302);
     // search with permission limits
@@ -953,6 +1006,13 @@ try {
     sleep(6);
     $r = $rl->req('GET', '/staff/tasks', [], false, ['Cache-Control: max-age=0']);
     t('reloading a page signs you out and shows the login page', $r['code'] === 302 && $r['loc'] === '/login' && $rl->get('/staff')['code'] === 302 && str_contains($rl->get('/login')['body'], 'reloaded'));
+    // page-script calls must never sign you out under the reload rule (a browser fetch with cache:'no-store' sends no-cache headers)
+    $rs = new Client($B); $rs->post('/login', ['email' => 'owner@smoke.test', 'password' => 'ownerpassword1']); $rs->post('/staff/admin/unlock', ['admin_key' => 'correct horse battery 2'], '/staff/admin');
+    sleep(6);
+    $hdr = ['Cache-Control: no-cache', 'Pragma: no-cache'];
+    t('heartbeat and backup-progress calls with no-cache headers do not sign you out', $rs->req('GET', '/staff/admin/ping', [], false, $hdr)['code'] === 204 && $rs->req('GET', '/staff/backups/status', [], false, $hdr)['code'] === 200 && $rs->get('/staff')['code'] === 200);
+    $rs->post('/staff/admin/lock', [], '/staff/admin'); sleep(6);
+    t('the reload after the admin area locks itself does not sign you out (once), a later plain reload does', $rs->req('GET', '/staff/admin', [], false, ['Cache-Control: max-age=0'])['code'] === 200 && $rs->req('GET', '/staff/tasks', [], false, ['Cache-Control: max-age=0'])['code'] === 302);
     $saveSettings(['session_rule' => 'keep']);
     $rk = new Client($B); $rk->post('/login', ['email' => 'owner@smoke.test', 'password' => 'ownerpassword1']);
     t('with the rule off, a reload keeps you signed in', $rk->req('GET', '/staff/tasks', [], false, ['Cache-Control: max-age=0'])['code'] === 200);

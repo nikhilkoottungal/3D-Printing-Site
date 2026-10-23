@@ -2,6 +2,18 @@
 function set_request_status(array $r, string $status, string $note, ?int $byUser): void
 {
     q('UPDATE is_requests SET status=?, updated_at=?' . ($status === 'dispatched' ? ', dispatched_at=COALESCE(dispatched_at, NOW())' : '') . ' WHERE id=?', [$status, now(), $r['id']]);
+    if ($status === 'dispatched') {   // say how it goes out in the history, so the order trail shows courier / hand delivery / pickup
+        $dm = (string) ($r['delivery_method'] ?? '');
+        $how = $dm === 'courier' ? 'Courier' . ($r['courier'] ? ': ' . $r['courier'] : '') . ($r['tracking'] ? ' (tracking ' . $r['tracking'] . ')' : '') : (DELIVERY_METHODS[$dm] ?? '');
+        if ($how !== '') { $note = trim($note . ' [' . $how . ']'); }
+    }
+    // A cancelled or failed order must not leave planned work in the print queue: jobs not yet started are removed; running ones are only reported.
+    if (in_array($status, ['cancelled', 'failed'], true)) {
+        $queued = (int) one("SELECT COUNT(*) c FROM is_print_jobs WHERE request_id=? AND status='queued'", [$r['id']])['c'];
+        $running = (int) one("SELECT COUNT(*) c FROM is_print_jobs WHERE request_id=? AND status='printing'", [$r['id']])['c'];
+        if ($queued) { q("DELETE FROM is_print_jobs WHERE request_id=? AND status='queued'", [$r['id']]); $note = trim($note . ' (' . $queued . ' queued print job(s) removed)'); }
+        if ($running) { $note = trim($note . ' (' . $running . ' print job(s) still printing: finish or mark them failed in the Print queue)'); }
+    }
     q('INSERT INTO is_request_history (request_id,status,note,by_user,at) VALUES (?,?,?,?,?)', [$r['id'], $status, mb_substr($note, 0, 500), $byUser, now()]);
     notify('order.status', "Order {$r['ref']}: " . (STATUSES[$status] ?? $status), "Order {$r['ref']} is now " . (STATUSES[$status] ?? $status) . ($note !== '' ? ".\nNote: $note" : '.') . "\n" . app_url('/staff/requests/' . $r['id']));
 }

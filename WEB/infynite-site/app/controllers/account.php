@@ -45,32 +45,32 @@ function me_update(): void
         $errs = hr_doc_upload((int) $u['id']);
         flash($errs ? implode(' ', $errs) : 'Document saved (stored encrypted).', $errs ? 'bad' : 'ok'); redirect('/staff/me#details');
     } elseif ($a === 'totp_start') {
-        if ($fresh['totp_enabled']) { flash('Two-factor login is already on.', 'bad'); redirect('/staff/me'); }
-        $_SESSION['totp_pending'] = totp_new_secret();
+        if ($fresh['totp_enabled']) { twofa_done('Two-factor login is already on.', 'bad'); }
+        $_SESSION['totp_pending'] = totp_new_secret(); twofa_done();
     } elseif ($a === 'totp_confirm') {
         $secret = $_SESSION['totp_pending'] ?? null;
         $c = $secret ? totp_verify($secret, (string) ($_POST['code'] ?? '')) : null;
-        if (!$c) { flash('That code is not right. Check the authenticator app and try again.', 'bad'); redirect('/staff/me'); }
+        if (!$c) { twofa_done('That code is not right. Check the authenticator app and try again.', 'bad'); }
         $codes = []; $hashes = [];
         for ($i = 0; $i < 8; $i++) { $raw = strtolower(substr(b32_encode(random_bytes(7)), 0, 10)); $codes[] = substr($raw, 0, 5) . '-' . substr($raw, 5); $hashes[] = hash('sha256', $raw); }
         q('UPDATE is_users SET totp_secret=?, totp_enabled=1, totp_last=?, recovery_codes=? WHERE id=?', [secret_encrypt($secret), $c, json_encode($hashes), $u['id']]);
         unset($_SESSION['totp_pending']); $_SESSION['new_recovery_codes'] = $codes;
-        audit('me.2fa_on'); flash('Two-factor login is on. Save the recovery codes below.');
+        audit('me.2fa_on'); twofa_done('Two-factor login is on. Save the recovery codes below.');
     } elseif ($a === 'totp_off') {
-        if (rate_limited('totpoff', 'u' . $u['id'], 20, 5, 15)) { flash('Too many attempts. Try again in 15 minutes.', 'bad'); redirect('/staff/me'); }
+        if (rate_limited('totpoff', 'u' . $u['id'], 20, 5, 15)) { twofa_done('Too many attempts. Try again in 15 minutes.', 'bad'); }
         note_attempt('totpoff', 'u' . $u['id']);
-        if (!$fresh['totp_enabled']) { flash('Two-factor login is already off.', 'bad'); redirect('/staff/me'); }
-        if (!password_verify((string) ($_POST['current'] ?? ''), $fresh['pass_hash'])) { flash('That password is not right.', 'bad'); redirect('/staff/me'); }
+        if (!$fresh['totp_enabled']) { twofa_done('Two-factor login is already off.', 'bad'); }
+        if (!password_verify((string) ($_POST['current'] ?? ''), $fresh['pass_hash'])) { twofa_done('That password is not right.', 'bad'); }
         $code = trim((string) ($_POST['code'] ?? '')); $ok = totp_verify((string) secret_decrypt($fresh['totp_secret']), $code) !== null;   // the password is also required, so a code from the same 30 s as the login is fine
         if (!$ok) {
             $h = hash('sha256', strtolower(str_replace(['-', ' '], '', $code))); $list = json_decode((string) $fresh['recovery_codes'], true) ?: [];
             $ok = in_array($h, $list, true);
         }
-        if (!$ok) { flash('That code is not right. Use the current 6-digit code from the app (check the phone clock is on automatic time), or one of your recovery codes.', 'bad'); redirect('/staff/me'); }
+        if (!$ok) { twofa_done('That code is not right. Use the current 6-digit code from the app (check the phone clock is on automatic time), or one of your recovery codes.', 'bad'); }
         q('UPDATE is_users SET totp_secret=NULL, totp_enabled=0, totp_last=0, recovery_codes=NULL WHERE id=?', [$u['id']]);
         q('DELETE FROM is_login_attempts WHERE kind=? AND email=?', ['totpoff', 'u' . $u['id']]);
-        audit('me.2fa_off'); flash('Two-factor login is off.');
-    } elseif ($a === 'totp_cancel') { unset($_SESSION['totp_pending']); }
+        audit('me.2fa_off'); twofa_done('Two-factor login is off.');
+    } elseif ($a === 'totp_cancel') { unset($_SESSION['totp_pending']); twofa_done(); }
     redirect('/staff/me');
 }
 
@@ -127,4 +127,11 @@ function me_delete(): void
     q('INSERT INTO is_audit_log (user_id, action, detail, ip, at) VALUES (NULL,?,?,?,?)', ['account.deleted', 'a team member deleted their own account permanently (#' . $p['id'] . ', ' . $p['name'] . ')', client_ip(), now()]);
     notify_admins('Team member deleted their account: ' . $p['name'], "{$p['name']} permanently deleted their own account. Their work stays without their name; shared notes passed to the first admin.");
     $_SESSION = []; session_regenerate_id(true); flash('Your account and personal details were permanently deleted.'); redirect('/login');
+}
+
+/** Two-factor actions end on the Two-factor card itself (#twofa), with their message shown inside it, so the QR code and any error are in view without scrolling. */
+function twofa_done(?string $msg = null, string $type = 'ok'): void
+{
+    if ($msg !== null) { $_SESSION['twofa_msg'] = [$type, $msg]; }
+    redirect('/staff/me#twofa');
 }

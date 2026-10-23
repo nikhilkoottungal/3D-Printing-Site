@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!box || !window.fetch) return;
     var log = box.querySelector('[data-backup-log]'), url = box.getAttribute('data-backup-poll'), fails = 0;
     function tick() {
-      fetch(url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (r.status === 403) { window.location.reload(); throw 0; } return r.json(); }).then(function (j) {
+      fetch(url, { credentials: 'same-origin' }).then(function (r) { if (r.status === 403) { window.location.reload(); throw 0; } return r.json(); }).then(function (j) {
         fails = 0;
         if (log && j.log) log.textContent = j.log;
         if (j.running) { setTimeout(tick, 2000); } else { window.location.replace('/staff/backups?done=1'); }
@@ -125,10 +125,17 @@ document.addEventListener('DOMContentLoaded', function () {
     function arm() { clearTimeout(idle); idle = setTimeout(lock, idleMs); }
     function active() {
       last = Date.now(); arm();
-      if (Date.now() - pinged > 8000) { pinged = Date.now(); fetch('/staff/admin/ping', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { if (r.status === 403) window.location.reload(); }, function () {}); }
+      if (Date.now() - pinged > 8000) { pinged = Date.now(); fetch('/staff/admin/ping', { credentials: 'same-origin' }).then(function (r) { if (r.status === 403) window.location.reload(); }, function () {}); }
     }
     ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'].forEach(function (e) { document.addEventListener(e, active, { passive: true }); });
-    document.addEventListener('visibilitychange', function () { if (document.hidden) lock(); else if (locked) window.location.reload(); });
+    // Leaving this page (clicking a tab/link, submitting a form, reload) also fires visibilitychange in some browsers; that is NOT a tab switch.
+    var leaving = false;
+    function leave() { leaving = true; setTimeout(function () { leaving = false; }, 2000); }
+    document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('a[href], button, input[type=submit]')) leave(); }, true);
+    document.addEventListener('submit', leave, true);
+    window.addEventListener('beforeunload', leave);
+    window.addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) { if (!leaving) lock(); } else if (locked) window.location.reload(); });
     window.addEventListener('pageshow', function (e) { if (e.persisted) window.location.reload(); });
     arm();
   });

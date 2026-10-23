@@ -52,7 +52,7 @@ Database engine InnoDB, collation utf8mb4_unicode_ci, 35 tables prefixed `is_`. 
 
 ### `is_requests`
 
-`id`, `ref`, `user_id`, `material`, `color`, `quantity`, `notes`, `status`, `quote_amount`, `quote_note`, `dolibarr_proposal_id`, `dolibarr_order_id`, `source`, `created_by`, `due_date`, `courier`, `tracking`, `dispatched_at`, `created_at`, `updated_at`
+`id`, `ref`, `user_id`, `material`, `color`, `quantity`, `notes`, `status`, `quote_amount`, `quote_note`, `dolibarr_proposal_id`, `dolibarr_order_id`, `source`, `created_by`, `due_date`, `delivery_method`, `courier`, `tracking`, `dispatched_at`, `created_at`, `updated_at`
 
 ### `is_request_files`
 

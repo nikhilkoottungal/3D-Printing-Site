@@ -79,7 +79,12 @@ function dispatch(): void
     if (user()) {
         $idle = (int) setting('idle_minutes', 0);
         if (idle_expired($_SESSION['last_seen'] ?? null, $idle)) { auth_force_logout('You were signed out after ' . $idle . ' minutes of inactivity.'); }
-        if ($method === 'GET' && setting('session_rule', 'reload') === 'reload' && is_reload_request($_SERVER) && time() - (int) ($_SESSION['post_at'] ?? 0) > 5) { auth_force_logout('You were signed out because the page was reloaded. Sign in again to continue.'); }
+        // The page script's own background calls (heartbeat, backup progress) are not page reloads; and the one reload the script does after locking the admin area is allowed once ('reload_ok', set by admin_lock()).
+        $quiet = in_array($path, ['/staff/admin/ping', '/staff/backups/status'], true);
+        if ($method === 'GET' && !$quiet && setting('session_rule', 'reload') === 'reload' && is_reload_request($_SERVER) && time() - (int) ($_SESSION['post_at'] ?? 0) > 5) {
+            if (!empty($_SESSION['reload_ok']) && time() - (int) $_SESSION['reload_ok'] < 86400) { unset($_SESSION['reload_ok']); }
+            else { auth_force_logout('You were signed out because the page was reloaded. Sign in again to continue.'); }
+        }
         $_SESSION['last_seen'] = time();
     }
     // Internal staff system: no public site and no customer accounts. Only these paths exist.

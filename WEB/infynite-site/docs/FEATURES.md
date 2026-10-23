@@ -11,7 +11,7 @@ Office-LAN, staff-only. Customers are records entered by staff; they never log i
 | 3D preview of STL files (in the browser, no data leaves the server) | order page, file list | all staff |
 | Quality check list saved against the order (who ticked, when) | order page | Owner, Sales, Production |
 | Rework and returns (open/resolved, cost) | order page | Owner, Sales, Production |
-| Delivery details: promised date, courier, tracking | order page | Owner, Sales, Production |
+| Delivery: how it is delivered (courier, hand delivery by our staff, customer pickup), promised date, courier and tracking (courier only); the route is written into the history when the order is dispatched | order page | Owner, Sales, Production |
 | Customers with address, GSTIN, state, order and invoice history | Customers | view: all; edit: Owner, Sales |
 | Search across orders, customers, invoices, tasks, procedures, stock, suppliers | sidebar search | results limited by role |
 
